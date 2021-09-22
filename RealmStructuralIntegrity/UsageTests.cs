@@ -1,87 +1,21 @@
 using System;
-using osu.Framework.Testing;
-using osu.Game.Database;
-using osu.Game.Models;
+using Realms;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace osu.Game
 {
-    public class UsageTests : IDisposable
+    public class UsageTests
     {
-        private readonly ITestOutputHelper output;
-
-        private static readonly TemporaryNativeStorage storage = new TemporaryNativeStorage("realm-test");
-
-        public UsageTests(ITestOutputHelper output)
+        public class Test : RealmObject
         {
-            this.output = output;
-
-            output.WriteLine($"Running tests at storage location {storage.GetFullPath(string.Empty)}");
+            public string TestString { get; set; }
         }
 
-        /// <summary>
-        /// Just test the construction of a new database works.
-        /// </summary>
         [Fact]
-        public void TestConstructRealm()
+        public void TestConstructRealm1()
         {
-            using (var realmFactory = new RealmContextFactory(storage))
-            {
-                realmFactory.Context.Refresh();
-            }
-
-            using (var realmFactory = new RealmContextFactory(storage))
-            {
-                realmFactory.Context.Refresh();
-            }
-        }
-
-        /// <summary>
-        /// Just test the construction of a new database works.
-        /// </summary>
-        // [Fact]
-        public void TestPersistNewBeatmap()
-        {
-            using (var realmFactory = new RealmContextFactory(storage))
-            {
-                using (var usage = realmFactory.GetForWrite())
-                {
-                    usage.Realm.Add(new BeatmapSetInfo
-                    {
-                        Beatmaps =
-                        {
-                            new BeatmapInfo
-                            {
-                                Version = "Easy",
-                                Difficulty = new BeatmapDifficulty(),
-                            },
-                            new BeatmapInfo
-                            {
-                                Version = "Normal",
-                                Difficulty = new BeatmapDifficulty(),
-                            },
-                            new BeatmapInfo
-                            {
-                                Version = "Hard",
-                                Difficulty = new BeatmapDifficulty(),
-                            }
-                        },
-                        Metadata = new BeatmapMetadata
-                        {
-                            Title = "My Love",
-                            Artist = "Kuba Oms"
-                        },
-                    });
-
-                    usage.Commit();
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            storage?.Dispose();
+            var realm = Realm.GetInstance($"{Guid.NewGuid()}.realm");
+            realm.Dispose();
         }
     }
 }
