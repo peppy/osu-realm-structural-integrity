@@ -6,6 +6,8 @@
         <IsPackable>false</IsPackable>
 
         <RootNamespace>osu.Game</RootNamespace>
+
+        <Nullable>disable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
