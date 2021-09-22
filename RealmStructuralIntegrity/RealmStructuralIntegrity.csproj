@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
+        <PackageReference Include="Nito.AsyncEx" Version="5.1.0" />
         <PackageReference Include="ppy.osu.Framework" Version="2021.916.1" />
         <PackageReference Include="Realm" Version="10.5.0" />
         <PackageReference Include="xunit" Version="2.4.1" />
