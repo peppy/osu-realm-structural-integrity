@@ -47,8 +47,8 @@ namespace osu.Game.Database
         {
             get
             {
-                if (!ThreadSafety.IsUpdateThread)
-                    throw new InvalidOperationException($"Use {nameof(GetForRead)} or {nameof(GetForWrite)} when performing realm operations from a non-update thread");
+                // if (!ThreadSafety.IsUpdateThread)
+                //     throw new InvalidOperationException($"Use {nameof(GetForRead)} or {nameof(GetForWrite)} when performing realm operations from a non-update thread");
 
                 lock (updateContextLock)
                 {
