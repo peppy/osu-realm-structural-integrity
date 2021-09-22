@@ -5,7 +5,6 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using osu.Framework.Allocation;
-using osu.Framework.Development;
 using osu.Framework.Graphics;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
@@ -180,6 +179,8 @@ namespace osu.Game.Database
 
         protected override void Dispose(bool isDisposing)
         {
+            context?.Dispose();
+
             if (!IsDisposed)
             {
                 // intentionally block all operations indefinitely. this ensures that nothing can start consuming a new context after disposal.
