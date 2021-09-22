@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace RealmStructuralIntegrity
+namespace osu.Game
 {
     public class UnitTest1
     {
