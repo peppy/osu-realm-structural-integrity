@@ -1,5 +1,8 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Nito.AsyncEx;
 using osu.Framework.Testing;
@@ -178,6 +181,69 @@ namespace osu.Game
 
                 Assert.Equal(key, beatmap.ID);
             });
+        }
+
+        [Fact]
+        public void TestThreadedAccessWithoutSharedSynchronizationContext()
+        {
+            AsyncContext.Run(() =>
+            {
+                Realm realm = null;
+                int thread1 = -1;
+
+                Task.Factory.StartNew(() =>
+                {
+                    thread1 = Thread.CurrentThread.ManagedThreadId;
+
+                    realm = Realm.GetInstance(new RealmConfiguration(Path.GetTempFileName()));
+                    realm.Write(() => realm.Add(new BeatmapInfo()));
+                    realm.Refresh();
+                }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
+
+                Task.Factory.StartNew(() =>
+                {
+                    Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+
+                    // expected one of these to crash as this context was opened on another thread?
+                    realm.Refresh();
+                    realm.Write(() => realm.Add(new BeatmapInfo()));
+                }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
+            });
+        }
+
+        [Fact]
+        public void TestThreadedAccessViaSharedSynchronizationContext()
+        {
+            using var realmFactory = new RealmContextFactory(storage);
+
+            BeatmapInfo beatmap = null;
+
+            var syncContext = new SynchronizationContext();
+
+            Task.Factory.StartNew(() =>
+            {
+                using (var usage = realmFactory.GetForWrite())
+                {
+                    usage.Realm.Add(beatmap = new BeatmapInfo());
+                    usage.Commit();
+                }
+            }, TaskCreationOptions.LongRunning).Wait();
+
+            int thread1 = -1;
+            Task.Factory.StartNew(() =>
+            {
+                thread1 = Thread.CurrentThread.ManagedThreadId;
+                SynchronizationContext.SetSynchronizationContext(syncContext);
+                beatmap = realmFactory.Context.All<BeatmapInfo>().First();
+            }, TaskCreationOptions.LongRunning).Wait();
+
+            Task.Factory.StartNew(() =>
+            {
+                Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+
+                SynchronizationContext.SetSynchronizationContext(syncContext);
+                Assert.False(beatmap.Hidden);
+            }, TaskCreationOptions.LongRunning).Wait();
         }
 
         public void Dispose()
