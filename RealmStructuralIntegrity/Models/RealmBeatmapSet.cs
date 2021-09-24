@@ -22,7 +22,7 @@ namespace osu.Game.Models
 
         public DateTimeOffset DateAdded { get; set; } = DateTimeOffset.Now;
 
-        public RealmBeatmapMetadata Metadata { get; set; }
+        public IBeatmapMetadataInfo Metadata => Beatmaps.First().Metadata;
 
         public IList<RealmBeatmap> Beatmaps { get; } = new List<RealmBeatmap>();
 
@@ -40,6 +40,7 @@ namespace osu.Game.Models
         public string Hash { get; set; }
 
         public bool Protected { get; set; }
+
         /// <summary>
         /// Returns the storage path for the file in this beatmapset with the given filename, if any exists, otherwise null.
         /// The path returned is relative to the user file storage.
@@ -65,8 +66,6 @@ namespace osu.Game.Models
 
             return ReferenceEquals(this, other);
         }
-
-        IBeatmapMetadataInfo IBeatmapSetInfo.Metadata => Metadata;
 
         IEnumerable<IBeatmapInfo> IBeatmapSetInfo.Beatmaps => Beatmaps;
 

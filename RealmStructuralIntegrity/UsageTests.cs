@@ -52,6 +52,12 @@ namespace osu.Game
                 {
                     using (var usage = realmFactory.GetForWrite())
                     {
+                        var metdata = new RealmBeatmapMetadata
+                        {
+                            Title = "My Love",
+                            Artist = "Kuba Oms"
+                        };
+
                         var beatmapSet = new RealmBeatmapSet
                         {
                             Beatmaps =
@@ -60,22 +66,20 @@ namespace osu.Game
                                 {
                                     DifficultyName = "Easy",
                                     Difficulty = new RealmBeatmapDifficulty(),
+                                    Metadata = metdata,
                                 },
                                 new RealmBeatmap
                                 {
                                     DifficultyName = "Normal",
                                     Difficulty = new RealmBeatmapDifficulty(),
+                                    Metadata = metdata,
                                 },
                                 new RealmBeatmap
                                 {
                                     DifficultyName = "Hard",
                                     Difficulty = new RealmBeatmapDifficulty(),
+                                    Metadata = metdata,
                                 }
-                            },
-                            Metadata = new RealmBeatmapMetadata
-                            {
-                                Title = "My Love",
-                                Artist = "Kuba Oms"
                             },
                             Files =
                             {

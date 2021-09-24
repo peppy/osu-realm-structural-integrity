@@ -23,7 +23,7 @@ namespace osu.Game.Models.Interfaces
         DateTimeOffset DateAdded { get; }
 
         /// <summary>
-        /// The metadata representing this set.
+        /// The best-effort metadata representing this set. In the case metadata differs between contained beatmaps, one is arbitrarily chosen.
         /// </summary>
         IBeatmapMetadataInfo Metadata { get; }
 
