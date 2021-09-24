@@ -133,16 +133,23 @@ namespace osu.Game.Database
 
                 contexts_created.Value++;
 
-                return Realm.GetInstance(new RealmConfiguration(storage.GetFullPath($"{database_name}.realm", true))
-                {
-                    SchemaVersion = schema_version,
-                    MigrationCallback = onMigration,
-                });
+                return Realm.GetInstance(getConfiguration());
             }
             finally
             {
                 blockingLock.Release();
             }
+        }
+
+        public void Compact() => Realm.Compact(getConfiguration());
+
+        private RealmConfiguration getConfiguration()
+        {
+            return new RealmConfiguration(storage.GetFullPath($"{database_name}.realm", true))
+            {
+                SchemaVersion = schema_version,
+                MigrationCallback = onMigration,
+            };
         }
 
         private void writeComplete()

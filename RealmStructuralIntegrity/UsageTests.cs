@@ -19,11 +19,32 @@ namespace osu.Game
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     public class UsageTests : IDisposable
     {
-        private static readonly TemporaryNativeStorage storage = new TemporaryNativeStorage("realm-test");
+        private readonly ITestOutputHelper output;
+
+        private readonly TemporaryNativeStorage storage;
+        private readonly RealmContextFactory realmFactory;
 
         public UsageTests(ITestOutputHelper output)
         {
+            this.output = output;
+
+            storage = new TemporaryNativeStorage("realm-test");
+            realmFactory = new RealmContextFactory(storage);
+
             output.WriteLine($"Running tests at storage location {storage.GetFullPath(string.Empty)}");
+        }
+
+        public void Dispose()
+        {
+            realmFactory.Dispose();
+
+            output.WriteLine($"Final database size: {storage.GetStream("client.realm")?.Length ?? 0}");
+
+            realmFactory.Compact();
+
+            output.WriteLine($"Final database size after compact: {storage.GetStream("client.realm")?.Length ?? 0}");
+
+            storage.Dispose();
         }
 
         /// <summary>
@@ -32,67 +53,79 @@ namespace osu.Game
         [Fact]
         public void TestConstructRealm()
         {
-            AsyncContext.Run(() =>
-            {
-                using (var realmFactory = new RealmContextFactory(storage))
-                {
-                    realmFactory.Context.Refresh();
-                }
-            });
+            AsyncContext.Run(() => { realmFactory.Context.Refresh(); });
         }
 
         /// <summary>
         /// Just test the construction of a new database works.
         /// </summary>
         [Fact]
-        public void TestPersistNewBeatmap()
+        public void TestImportSingleBeatmap()
         {
             AsyncContext.Run(() =>
             {
-                using (var realmFactory = new RealmContextFactory(storage))
+                using (var usage = realmFactory.GetForWrite())
                 {
-                    using (var usage = realmFactory.GetForWrite())
-                    {
-                        var metdata = new RealmBeatmapMetadata
-                        {
-                            Title = "My Love",
-                            Artist = "Kuba Oms"
-                        };
+                    var ruleset = createRuleset();
+                    usage.Realm.Add(ruleset, true);
 
-                        var ruleset = createRuleset();
+                    var beatmapSet = createBeatmapSet(ruleset);
 
-                        usage.Realm.Add(ruleset, true);
+                    usage.Realm.Add(beatmapSet);
 
-                        var beatmapSet = new RealmBeatmapSet
-                        {
-                            Beatmaps =
-                            {
-                                new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metdata) { DifficultyName = "Easy", },
-                                new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metdata) { DifficultyName = "Normal", },
-                                new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metdata) { DifficultyName = "Hard", }
-                            },
-                            Files =
-                            {
-                                new RealmNamedFileUsage(createRealmFile(), "test [easy].osu"),
-                                new RealmNamedFileUsage(createRealmFile(), "test [normal].osu"),
-                                new RealmNamedFileUsage(createRealmFile(), "test [hard].osu"),
-                            }
-                        };
+                    usage.Commit();
 
-                        foreach (var b in beatmapSet.Beatmaps)
-                            b.BeatmapSet = beatmapSet;
-
-                        usage.Realm.Add(beatmapSet);
-
-                        usage.Commit();
-
-                        foreach (var file in usage.Realm.All<RealmFile>())
-                            Assert.Equal(1, file.ReferenceCount);
-                    }
+                    foreach (var file in usage.Realm.All<RealmFile>())
+                        Assert.Equal(1, file.ReferenceCount);
                 }
             });
+        }
 
-            RealmFile createRealmFile() => new RealmFile { Hash = Guid.NewGuid().ToString().ComputeSHA2Hash() };
+        [Fact]
+        public void TestImportManyBeatmapsSingleTransaction()
+        {
+            AsyncContext.Run(() =>
+            {
+                using (var usage = realmFactory.GetForWrite())
+                {
+                    var ruleset = createRuleset();
+                    usage.Realm.Add(ruleset, true);
+
+                    for (int i = 0; i < 10000; i++)
+                    {
+                        var beatmapSet = createBeatmapSet(ruleset);
+                        usage.Realm.Add(beatmapSet);
+                    }
+
+                    usage.Commit();
+
+                    foreach (var file in usage.Realm.All<RealmFile>())
+                        Assert.Equal(1, file.ReferenceCount);
+                }
+            });
+        }
+
+        [Fact]
+        public void TestImportManyBeatmapsIndividualTransactions()
+        {
+            AsyncContext.Run(() =>
+            {
+                var ruleset = createRuleset();
+
+                realmFactory.Context.Write(() => realmFactory.Context.Add(ruleset, true));
+
+                for (int i = 0; i < 10000; i++)
+                {
+                    using (var transaction = realmFactory.Context.BeginWrite())
+                    {
+                        realmFactory.Context.Add(createBeatmapSet(ruleset));
+                        transaction.Commit();
+                    }
+                }
+
+                foreach (var file in realmFactory.Context.All<RealmFile>())
+                    Assert.Equal(1, file.ReferenceCount);
+            });
         }
 
         /// <summary>
@@ -105,8 +138,6 @@ namespace osu.Game
         {
             AsyncContext.Run(() =>
             {
-                using var realmFactory = new RealmContextFactory(storage);
-
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
 
@@ -158,8 +189,6 @@ namespace osu.Game
         {
             AsyncContext.Run(() =>
             {
-                using var realmFactory = new RealmContextFactory(storage);
-
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
 
@@ -233,8 +262,6 @@ namespace osu.Game
         [Fact]
         public void TestThreadedAccessViaSharedSynchronizationContext()
         {
-            using var realmFactory = new RealmContextFactory(storage);
-
             RealmBeatmap? beatmap = null;
 
             var syncContext = new SynchronizationContext();
@@ -267,9 +294,36 @@ namespace osu.Game
             }, TaskCreationOptions.LongRunning).Wait();
         }
 
-        public void Dispose()
+        private static RealmBeatmapSet createBeatmapSet(RealmRuleset ruleset)
         {
-            storage.Dispose();
+            RealmFile createRealmFile() => new RealmFile { Hash = Guid.NewGuid().ToString().ComputeSHA2Hash() };
+
+            var metadata = new RealmBeatmapMetadata
+            {
+                Title = "My Love",
+                Artist = "Kuba Oms"
+            };
+
+            var beatmapSet = new RealmBeatmapSet
+            {
+                Beatmaps =
+                {
+                    new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Easy", },
+                    new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Normal", },
+                    new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Hard", }
+                },
+                Files =
+                {
+                    new RealmNamedFileUsage(createRealmFile(), "test [easy].osu"),
+                    new RealmNamedFileUsage(createRealmFile(), "test [normal].osu"),
+                    new RealmNamedFileUsage(createRealmFile(), "test [hard].osu"),
+                }
+            };
+
+            foreach (var b in beatmapSet.Beatmaps)
+                b.BeatmapSet = beatmapSet;
+
+            return beatmapSet;
         }
 
         private static RealmRuleset createRuleset() =>
