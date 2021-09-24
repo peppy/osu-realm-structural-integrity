@@ -5,7 +5,7 @@ using Realms;
 
 namespace osu.Game.Models
 {
-    public class BeatmapDifficulty : EmbeddedObject
+    public class RealmBeatmapDifficulty : EmbeddedObject
     {
         /// <summary>
         /// The default value used for all difficulty settings except <see cref="SliderMultiplier"/> and <see cref="SliderTickRate"/>.
@@ -21,16 +21,16 @@ namespace osu.Game.Models
         public double SliderTickRate { get; set; } = 1;
 
         /// <summary>
-        /// Returns a shallow-clone of this <see cref="BeatmapDifficulty"/>.
+        /// Returns a shallow-clone of this <see cref="RealmBeatmapDifficulty"/>.
         /// </summary>
-        public BeatmapDifficulty Clone()
+        public RealmBeatmapDifficulty Clone()
         {
-            var diff = new BeatmapDifficulty();
+            var diff = new RealmBeatmapDifficulty();
             CopyTo(diff);
             return diff;
         }
 
-        public void CopyTo(BeatmapDifficulty difficulty)
+        public void CopyTo(RealmBeatmapDifficulty difficulty)
         {
             difficulty.ApproachRate = ApproachRate;
             difficulty.DrainRate = DrainRate;

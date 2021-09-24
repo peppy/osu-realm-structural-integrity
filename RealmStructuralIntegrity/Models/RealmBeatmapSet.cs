@@ -13,20 +13,21 @@ using Realms;
 namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
-    public class BeatmapSetInfo : RealmObject, IHasGuidPrimaryKey, IHasFiles<BeatmapSetFileInfo>, ISoftDelete, IEquatable<BeatmapSetInfo>
+    [MapTo("BeatmapSet")]
+    public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasFiles<RealmBeatmapSetFile>, ISoftDelete, IEquatable<RealmBeatmapSet>
     {
         public Guid ID { get; set; } = Guid.NewGuid();
 
         public int? OnlineBeatmapSetID { get; set; }
 
-        public DateTimeOffset DateAdded { get; set; }
+        public DateTimeOffset DateAdded { get; set; } = DateTimeOffset.Now;
 
-        public BeatmapMetadata Metadata { get; set; }
+        public RealmBeatmapMetadata Metadata { get; set; }
 
-        public IList<BeatmapInfo> Beatmaps { get; } = new List<BeatmapInfo>();
+        public IList<RealmBeatmap> Beatmaps { get; } = new List<RealmBeatmap>();
 
         [NotNull]
-        public IList<BeatmapSetFileInfo> Files { get; } = new List<BeatmapSetFileInfo>();
+        public IList<RealmBeatmapSetFile> Files { get; } = new List<RealmBeatmapSetFile>();
 
         /// <summary>
         /// The maximum star difficulty of all beatmaps in this set.
@@ -55,13 +56,13 @@ namespace osu.Game.Models
         /// The path returned is relative to the user file storage.
         /// </summary>
         /// <param name="filename">The name of the file to get the storage path of.</param>
-        public string GetPathForFile(string filename) => Files.SingleOrDefault(f => string.Equals(f.Filename, filename, StringComparison.OrdinalIgnoreCase))?.FileInfo.StoragePath;
+        public string GetPathForFile(string filename) => Files.SingleOrDefault(f => string.Equals(f.Filename, filename, StringComparison.OrdinalIgnoreCase))?.File.StoragePath;
 
         public override string ToString() => Metadata?.ToString() ?? base.ToString();
 
         public bool Protected { get; set; }
 
-        public bool Equals(BeatmapSetInfo other)
+        public bool Equals(RealmBeatmapSet other)
         {
             if (other == null)
                 return false;

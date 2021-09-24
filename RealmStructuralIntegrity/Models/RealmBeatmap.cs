@@ -13,7 +13,8 @@ namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
     [Serializable]
-    public class BeatmapInfo : RealmObject, IEquatable<BeatmapInfo>, IHasGuidPrimaryKey
+    [MapTo("Beatmap")]
+    public class RealmBeatmap : RealmObject, IEquatable<RealmBeatmap>, IHasGuidPrimaryKey
     {
         [PrimaryKey]
         public Guid ID { get; set; } = Guid.NewGuid();
@@ -23,11 +24,11 @@ namespace osu.Game.Models
         [JsonProperty("id")]
         public int? OnlineBeatmapID { get; set; }
 
-        public BeatmapSetInfo BeatmapSet { get; set; }
+        public RealmBeatmapSet BeatmapSet { get; set; }
 
-        public BeatmapMetadata Metadata { get; set; }
+        public RealmBeatmapMetadata Metadata { get; set; }
 
-        public BeatmapDifficulty Difficulty { get; set; }
+        public RealmBeatmapDifficulty Difficulty { get; set; }
 
         [NotMapped]
         public int? MaxCombo { get; set; }
@@ -47,7 +48,7 @@ namespace osu.Game.Models
         [JsonProperty("file_sha2")]
         public string Hash { get; set; }
 
-        public RulesetInfo Ruleset { get; set; }
+        public RealmRuleset Ruleset { get; set; }
 
         [JsonIgnore]
         public bool Hidden { get; set; }
@@ -92,19 +93,19 @@ namespace osu.Game.Models
             return new RomanisableString($"{metadata.GetPreferred(true)} {versionString}".Trim(), $"{metadata.GetPreferred(false)} {versionString}".Trim());
         }
 
-        public bool Equals(BeatmapInfo other) => ID == other?.ID;
+        public bool Equals(RealmBeatmap other) => ID == other?.ID;
 
-        public bool AudioEquals(BeatmapInfo other) => other != null && BeatmapSet != null && other.BeatmapSet != null &&
+        public bool AudioEquals(RealmBeatmap other) => other != null && BeatmapSet != null && other.BeatmapSet != null &&
                                                       BeatmapSet.Hash == other.BeatmapSet.Hash &&
                                                       (Metadata ?? BeatmapSet.Metadata).AudioFile == (other.Metadata ?? other.BeatmapSet.Metadata).AudioFile;
 
-        public bool BackgroundEquals(BeatmapInfo other) => other != null && BeatmapSet != null && other.BeatmapSet != null &&
+        public bool BackgroundEquals(RealmBeatmap other) => other != null && BeatmapSet != null && other.BeatmapSet != null &&
                                                            BeatmapSet.Hash == other.BeatmapSet.Hash &&
                                                            (Metadata ?? BeatmapSet.Metadata).BackgroundFile == (other.Metadata ?? other.BeatmapSet.Metadata).BackgroundFile;
 
         /// <summary>
-        /// Returns a shallow-clone of this <see cref="BeatmapInfo"/>.
+        /// Returns a shallow-clone of this <see cref="RealmBeatmap"/>.
         /// </summary>
-        public BeatmapInfo Clone() => (BeatmapInfo)MemberwiseClone();
+        public RealmBeatmap Clone() => (RealmBeatmap)MemberwiseClone();
     }
 }

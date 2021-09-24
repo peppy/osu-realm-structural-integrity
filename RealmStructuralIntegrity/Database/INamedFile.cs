@@ -6,12 +6,12 @@ using osu.Game.Models;
 namespace osu.Game.Database
 {
     /// <summary>
-    /// Represent a join model which gives a filename and scope to a <see cref="FileInfo"/>.
+    /// Represent a join model which gives a filename and scope to a <see cref="File"/>.
     /// </summary>
-    public interface INamedFileInfo
+    public interface INamedFile
     {
-        FileInfo FileInfo { get; set; }
-
         string Filename { get; set; }
+
+        RealmFile File { get; set; }
     }
 }

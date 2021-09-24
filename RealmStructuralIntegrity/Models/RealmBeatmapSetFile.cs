@@ -6,9 +6,9 @@ using Realms;
 
 namespace osu.Game.Models
 {
-    public class BeatmapSetFileInfo : EmbeddedObject, INamedFileInfo
+    public class RealmBeatmapSetFile : EmbeddedObject, INamedFile
     {
-        public FileInfo FileInfo { get; set; }
+        public RealmFile File { get; set; }
 
         public string Filename { get; set; }
     }

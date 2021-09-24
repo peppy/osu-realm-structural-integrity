@@ -6,7 +6,7 @@ using Realms;
 
 namespace osu.Game.Models
 {
-    public class FileInfo : RealmObject
+    public class RealmFile : RealmObject
     {
         /// <summary>
         /// SHA-256 hash of the file content.

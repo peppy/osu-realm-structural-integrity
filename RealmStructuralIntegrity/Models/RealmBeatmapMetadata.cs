@@ -13,7 +13,8 @@ namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
     [Serializable]
-    public class BeatmapMetadata : RealmObject, IEquatable<BeatmapMetadata>
+    [MapTo("BeatmapMetadata")]
+    public class RealmBeatmapMetadata : RealmObject, IEquatable<RealmBeatmapMetadata>
     {
         public string Title { get; set; }
 
@@ -26,10 +27,10 @@ namespace osu.Game.Models
         public string ArtistUnicode { get; set; }
 
         [JsonIgnore]
-        public IList<BeatmapInfo> Beatmaps { get; } = new List<BeatmapInfo>();
+        public IList<RealmBeatmap> Beatmaps { get; } = new List<RealmBeatmap>();
 
         [JsonIgnore]
-        public IList<BeatmapSetInfo> BeatmapSets { get; } = new List<BeatmapSetInfo>();
+        public IList<RealmBeatmapSet> BeatmapSets { get; } = new List<RealmBeatmapSet>();
 
         public string Author { get; set; } // eventually should be linked to a persisted User.
 
@@ -74,7 +75,7 @@ namespace osu.Game.Models
             Tags
         }.Where(s => !string.IsNullOrEmpty(s)).ToArray();
 
-        public bool Equals(BeatmapMetadata other)
+        public bool Equals(RealmBeatmapMetadata other)
         {
             if (other == null)
                 return false;

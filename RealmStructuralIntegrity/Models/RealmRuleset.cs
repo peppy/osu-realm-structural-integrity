@@ -10,7 +10,8 @@ using Realms;
 namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
-    public class RulesetInfo : RealmObject, IEquatable<RulesetInfo>
+    [MapTo("Ruleset")]
+    public class RealmRuleset : RealmObject, IEquatable<RealmRuleset>
     {
         [PrimaryKey]
         public int? ID { get; set; }
@@ -24,9 +25,9 @@ namespace osu.Game.Models
         [JsonIgnore]
         public bool Available { get; set; }
 
-        public bool Equals(RulesetInfo other) => other != null && ID == other.ID && Available == other.Available && Name == other.Name && InstantiationInfo == other.InstantiationInfo;
+        public bool Equals(RealmRuleset other) => other != null && ID == other.ID && Available == other.Available && Name == other.Name && InstantiationInfo == other.InstantiationInfo;
 
-        public override bool Equals(object obj) => obj is RulesetInfo rulesetInfo && Equals(rulesetInfo);
+        public override bool Equals(object obj) => obj is RealmRuleset rulesetInfo && Equals(rulesetInfo);
 
         [SuppressMessage("ReSharper", "NonReadonlyMemberInGetHashCode")]
         public override int GetHashCode()
@@ -43,7 +44,7 @@ namespace osu.Game.Models
 
         public override string ToString() => Name ?? $"{Name} ({ShortName}) ID: {ID}";
 
-        public RulesetInfo Clone() => new RulesetInfo
+        public RealmRuleset Clone() => new RealmRuleset
         {
             ID = ID,
             Name = Name,
