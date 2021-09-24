@@ -1,6 +1,7 @@
 ﻿// Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using System.IO;
 using System.Linq;
 using osu.Game.Models.Interfaces;
@@ -15,10 +16,10 @@ namespace osu.Game.Models
         /// SHA-256 hash of the file content.
         /// </summary>
         [PrimaryKey]
-        public string Hash { get; set; }
+        public string Hash { get; set; } = String.Empty;
 
         [Backlink(nameof(RealmNamedFileUsage.File))]
-        public IQueryable<RealmNamedFileUsage> Usages { get; } // TODO: check efficiency (ie. do we need to cache this to a count still?)
+        public IQueryable<RealmNamedFileUsage> Usages { get; } = null!; // TODO: check efficiency (ie. do we need to cache this to a count still?)
 
         /// <summary>
         /// The number of times this file is referenced across all usages.

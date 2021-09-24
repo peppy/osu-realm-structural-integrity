@@ -7,7 +7,7 @@
 
         <RootNamespace>osu.Game</RootNamespace>
 
-        <Nullable>disable</Nullable>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>

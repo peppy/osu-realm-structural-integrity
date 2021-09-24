@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
+using JetBrains.Annotations;
 using Newtonsoft.Json;
 using osu.Framework.Testing;
 using osu.Game.Database;
@@ -21,30 +22,42 @@ namespace osu.Game.Models
         [PrimaryKey]
         public Guid ID { get; set; } = Guid.NewGuid();
 
-        public string DifficultyName { get; set; }
+        public string DifficultyName { get; set; } = String.Empty;
+
+        public RealmRuleset Ruleset { get; set; } = null!;
+
+        public RealmBeatmapDifficulty Difficulty { get; set; } = null!;
+
+        public RealmBeatmapMetadata Metadata { get; set; } = null!;
+
+        public RealmBeatmapSet? BeatmapSet { get; set; }
 
         public int? OnlineID { get; set; }
-
-        public RealmBeatmapSet BeatmapSet { get; set; }
-
-        public RealmBeatmapDifficulty Difficulty { get; set; }
-
-        public RealmBeatmapMetadata Metadata { get; set; }
 
         public double Length { get; set; }
 
         public double BPM { get; set; }
 
-        public string Hash { get; set; }
-
-        public RealmRuleset Ruleset { get; set; }
+        public string Hash { get; set; } = String.Empty;
 
         public double StarRating { get; set; }
 
-        public string MD5Hash { get; set; }
+        public string MD5Hash { get; set; } = String.Empty;
 
         [JsonIgnore]
         public bool Hidden { get; set; }
+
+        public RealmBeatmap(RealmRuleset ruleset, RealmBeatmapDifficulty difficulty, RealmBeatmapMetadata metadata)
+        {
+            Ruleset = ruleset;
+            Difficulty = difficulty;
+            Metadata = metadata;
+        }
+
+        [UsedImplicitly]
+        private RealmBeatmap()
+        {
+        }
 
         #region Properties we may not want persisted (but also maybe no harm?)
 
@@ -77,17 +90,17 @@ namespace osu.Game.Models
         /// </summary>
         public RealmBeatmap Clone() => (RealmBeatmap)MemberwiseClone();
 
-        public bool AudioEquals(RealmBeatmap other) => other != null
-                                                       && BeatmapSet != null
-                                                       && other.BeatmapSet != null
-                                                       && BeatmapSet.Hash == other.BeatmapSet.Hash
-                                                       && (Metadata ?? BeatmapSet.Metadata).AudioFile == (other.Metadata ?? other.BeatmapSet.Metadata).AudioFile;
+        public bool AudioEquals(RealmBeatmap? other) => other != null
+                                                        && BeatmapSet != null
+                                                        && other.BeatmapSet != null
+                                                        && BeatmapSet.Hash == other.BeatmapSet.Hash
+                                                        && Metadata.AudioFile == other.Metadata.AudioFile;
 
-        public bool BackgroundEquals(RealmBeatmap other) => other != null
-                                                            && BeatmapSet != null
-                                                            && other.BeatmapSet != null
-                                                            && BeatmapSet.Hash == other.BeatmapSet.Hash
-                                                            && (Metadata ?? BeatmapSet.Metadata).BackgroundFile == (other.Metadata ?? other.BeatmapSet.Metadata).BackgroundFile;
+        public bool BackgroundEquals(RealmBeatmap? other) => other != null
+                                                             && BeatmapSet != null
+                                                             && other.BeatmapSet != null
+                                                             && BeatmapSet.Hash == other.BeatmapSet.Hash
+                                                             && Metadata.BackgroundFile == other.Metadata.BackgroundFile;
 
         IBeatmapMetadataInfo IBeatmapInfo.Metadata => Metadata;
         IRulesetInfo IBeatmapInfo.Ruleset => Ruleset;

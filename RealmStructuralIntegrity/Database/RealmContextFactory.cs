@@ -40,7 +40,7 @@ namespace osu.Game.Database
 
         private readonly object updateContextLock = new object();
 
-        private Realm context;
+        private Realm? context;
 
         public Realm Context
         {
@@ -160,7 +160,7 @@ namespace osu.Game.Database
             Logger.Log(@"Flushing realm contexts...", LoggingTarget.Database);
             Debug.Assert(blockingLock.CurrentCount == 0);
 
-            Realm previousContext;
+            Realm? previousContext;
 
             lock (updateContextLock)
             {
@@ -185,7 +185,7 @@ namespace osu.Game.Database
             {
                 // intentionally block all operations indefinitely. this ensures that nothing can start consuming a new context after disposal.
                 BlockAllOperations();
-                blockingLock?.Dispose();
+                blockingLock.Dispose();
             }
 
             base.Dispose(isDisposing);
@@ -224,7 +224,7 @@ namespace osu.Game.Database
             /// </summary>
             public virtual void Dispose()
             {
-                Realm?.Dispose();
+                Realm.Dispose();
                 active_usages.Value--;
             }
         }
@@ -260,7 +260,7 @@ namespace osu.Game.Database
             public override void Dispose()
             {
                 // rollback if not explicitly committed.
-                transaction?.Dispose();
+                transaction.Dispose();
 
                 base.Dispose();
 

@@ -67,7 +67,7 @@ namespace osu.Game.Models.Interfaces
         {
             get
             {
-                string author = Author == null ? string.Empty : $"({Author})";
+                string author = string.IsNullOrEmpty(Author) ? string.Empty : $"({Author})";
                 return $"{Artist} - {Title} {author}".Trim();
             }
         }
@@ -76,7 +76,7 @@ namespace osu.Game.Models.Interfaces
         {
             get
             {
-                string author = Author == null ? string.Empty : $"({Author})";
+                string author = string.IsNullOrEmpty(Author) ? string.Empty : $"({Author})";
                 var artistUnicode = string.IsNullOrEmpty(ArtistUnicode) ? Artist : ArtistUnicode;
                 var titleUnicode = string.IsNullOrEmpty(TitleUnicode) ? Title : TitleUnicode;
 
@@ -95,7 +95,7 @@ namespace osu.Game.Models.Interfaces
             Tags
         }.Where(s => !string.IsNullOrEmpty(s)).ToArray();
 
-        bool IEquatable<IBeatmapMetadataInfo>.Equals(IBeatmapMetadataInfo other)
+        bool IEquatable<IBeatmapMetadataInfo>.Equals(IBeatmapMetadataInfo? other)
         {
             if (other == null)
                 return false;

@@ -14,22 +14,22 @@ namespace osu.Game.Models
     [MapTo("BeatmapMetadata")]
     public class RealmBeatmapMetadata : RealmObject, IBeatmapMetadataInfo
     {
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         [JsonProperty("title_unicode")]
-        public string TitleUnicode { get; set; }
+        public string TitleUnicode { get; set; } = string.Empty;
 
-        public string Artist { get; set; }
+        public string Artist { get; set; } = string.Empty;
 
         [JsonProperty("artist_unicode")]
-        public string ArtistUnicode { get; set; }
+        public string ArtistUnicode { get; set; } = string.Empty;
 
-        public string Author { get; set; } // eventually should be linked to a persisted User.
+        public string Author { get; set; } = string.Empty; // eventually should be linked to a persisted User. = string.Empty;
 
-        public string Source { get; set; }
+        public string Source { get; set; } = string.Empty;
 
         [JsonProperty(@"tags")]
-        public string Tags { get; set; }
+        public string Tags { get; set; } = string.Empty;
 
         /// <summary>
         /// The time in milliseconds to begin playing the track for preview purposes.
@@ -37,7 +37,7 @@ namespace osu.Game.Models
         /// </summary>
         public int PreviewTime { get; set; }
 
-        public string AudioFile { get; set; }
-        public string BackgroundFile { get; set; }
+        public string AudioFile { get; set; } = string.Empty;
+        public string BackgroundFile { get; set; } = string.Empty;
     }
 }

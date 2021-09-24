@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -58,13 +59,7 @@ namespace osu.Game
                             Artist = "Kuba Oms"
                         };
 
-                        var ruleset = new RealmRuleset
-                        {
-                            OnlineID = 0,
-                            Name = "osu!",
-                            ShortName = "osu",
-                            Available = true
-                        };
+                        var ruleset = createRuleset();
 
                         usage.Realm.Add(ruleset, true);
 
@@ -72,54 +67,15 @@ namespace osu.Game
                         {
                             Beatmaps =
                             {
-                                new RealmBeatmap
-                                {
-                                    Ruleset = ruleset,
-                                    DifficultyName = "Easy",
-                                    Difficulty = new RealmBeatmapDifficulty(),
-                                    Metadata = metdata,
-                                },
-                                new RealmBeatmap
-                                {
-                                    Ruleset = ruleset,
-                                    DifficultyName = "Normal",
-                                    Difficulty = new RealmBeatmapDifficulty(),
-                                    Metadata = metdata,
-                                },
-                                new RealmBeatmap
-                                {
-                                    Ruleset = ruleset,
-                                    DifficultyName = "Hard",
-                                    Difficulty = new RealmBeatmapDifficulty(),
-                                    Metadata = metdata,
-                                }
+                                new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metdata) { DifficultyName = "Easy", },
+                                new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metdata) { DifficultyName = "Normal", },
+                                new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metdata) { DifficultyName = "Hard", }
                             },
                             Files =
                             {
-                                new RealmNamedFileUsage
-                                {
-                                    Filename = "test [easy].osu",
-                                    File = new RealmFile
-                                    {
-                                        Hash = Guid.NewGuid().ToString().ComputeSHA2Hash()
-                                    }
-                                },
-                                new RealmNamedFileUsage
-                                {
-                                    Filename = "test [normal].osu",
-                                    File = new RealmFile
-                                    {
-                                        Hash = Guid.NewGuid().ToString().ComputeSHA2Hash()
-                                    }
-                                },
-                                new RealmNamedFileUsage
-                                {
-                                    Filename = "test [hard].osu",
-                                    File = new RealmFile
-                                    {
-                                        Hash = Guid.NewGuid().ToString().ComputeSHA2Hash()
-                                    }
-                                },
+                                new RealmNamedFileUsage(createRealmFile(), "test [easy].osu"),
+                                new RealmNamedFileUsage(createRealmFile(), "test [normal].osu"),
+                                new RealmNamedFileUsage(createRealmFile(), "test [hard].osu"),
                             }
                         };
 
@@ -135,6 +91,8 @@ namespace osu.Game
                     }
                 }
             });
+
+            RealmFile createRealmFile() => new RealmFile { Hash = Guid.NewGuid().ToString().ComputeSHA2Hash() };
         }
 
         /// <summary>
@@ -152,7 +110,7 @@ namespace osu.Game
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
 
-                RealmBeatmap beatmap = null;
+                RealmBeatmap? beatmap = null;
 
                 Guid key = Guid.Empty;
 
@@ -163,7 +121,7 @@ namespace osu.Game
                     {
                         Assert.NotEqual(context, usage.Realm);
 
-                        usage.Realm.Add(beatmap = new RealmBeatmap());
+                        usage.Realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
 
                         usage.Commit();
 
@@ -171,6 +129,8 @@ namespace osu.Game
                         key = beatmap.ID;
                     }
                 }).Wait();
+
+                Debug.Assert(beatmap != null);
 
                 // can check the managed state outside of original context.
                 Assert.True(beatmap.IsManaged);
@@ -203,9 +163,9 @@ namespace osu.Game
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
 
-                RealmBeatmap beatmap = null;
+                RealmBeatmap? beatmap = null;
 
-                ThreadSafeReference.Object<RealmBeatmap> threadSafeReference = null;
+                ThreadSafeReference.Object<RealmBeatmap>? threadSafeReference = null;
                 Guid key = Guid.Empty;
 
                 Task.Run(() =>
@@ -215,13 +175,15 @@ namespace osu.Game
                     {
                         Assert.NotEqual(context, usage.Realm);
 
-                        usage.Realm.Add(beatmap = new RealmBeatmap());
+                        usage.Realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
                         usage.Commit();
 
                         threadSafeReference = ThreadSafeReference.Create(beatmap);
                         key = beatmap.ID;
                     }
                 }).Wait();
+
+                Debug.Assert(beatmap != null);
 
                 // can check the managed state outside of original context.
                 Assert.True(beatmap.IsManaged);
@@ -241,15 +203,17 @@ namespace osu.Game
         {
             AsyncContext.Run(() =>
             {
-                Realm realm = null;
+                Realm? realm = null;
                 int thread1 = -1;
+
+                var ruleset = createRuleset();
 
                 Task.Factory.StartNew(() =>
                 {
                     thread1 = Thread.CurrentThread.ManagedThreadId;
 
                     realm = Realm.GetInstance(new RealmConfiguration(Path.GetTempFileName()));
-                    realm.Write(() => realm.Add(new RealmBeatmap()));
+                    realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
                     realm.Refresh();
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
 
@@ -257,9 +221,11 @@ namespace osu.Game
                 {
                     Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
+                    Debug.Assert(realm != null);
+
                     // expected one of these to crash as this context was opened on another thread?
                     realm.Refresh();
-                    realm.Write(() => realm.Add(new RealmBeatmap()));
+                    realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
             });
         }
@@ -269,7 +235,7 @@ namespace osu.Game
         {
             using var realmFactory = new RealmContextFactory(storage);
 
-            RealmBeatmap beatmap = null;
+            RealmBeatmap? beatmap = null;
 
             var syncContext = new SynchronizationContext();
 
@@ -277,7 +243,7 @@ namespace osu.Game
             {
                 using (var usage = realmFactory.GetForWrite())
                 {
-                    usage.Realm.Add(beatmap = new RealmBeatmap());
+                    usage.Realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
                     usage.Commit();
                 }
             }, TaskCreationOptions.LongRunning).Wait();
@@ -294,6 +260,8 @@ namespace osu.Game
             {
                 Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
+                Debug.Assert(beatmap != null);
+
                 SynchronizationContext.SetSynchronizationContext(syncContext);
                 Assert.False(beatmap.Hidden);
             }, TaskCreationOptions.LongRunning).Wait();
@@ -301,7 +269,10 @@ namespace osu.Game
 
         public void Dispose()
         {
-            storage?.Dispose();
+            storage.Dispose();
         }
+
+        private static RealmRuleset createRuleset() =>
+            new RealmRuleset(0, "osu!", "osu", true);
     }
 }

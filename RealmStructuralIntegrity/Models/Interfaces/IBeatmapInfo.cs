@@ -66,7 +66,7 @@ namespace osu.Game.Models.Interfaces
         {
             get
             {
-                var metadata = Metadata?.DisplayTitleRomanisable ?? new RomanisableString(null, null);
+                var metadata = Metadata.DisplayTitleRomanisable;
 
                 return new RomanisableString($"{metadata.GetPreferred(true)} {versionString}".Trim(), $"{metadata.GetPreferred(false)} {versionString}".Trim());
             }

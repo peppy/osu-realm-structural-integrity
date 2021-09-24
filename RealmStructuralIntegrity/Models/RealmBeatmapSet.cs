@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using JetBrains.Annotations;
 using osu.Framework.Testing;
 using osu.Game.Database;
 using osu.Game.Models.Interfaces;
@@ -20,37 +19,39 @@ namespace osu.Game.Models
 
         public int? OnlineID { get; set; }
 
-        public DateTimeOffset DateAdded { get; set; } = DateTimeOffset.Now;
+        public DateTimeOffset DateAdded { get; set; }
 
         public IBeatmapMetadataInfo Metadata => Beatmaps.First().Metadata;
 
         public IList<RealmBeatmap> Beatmaps { get; } = new List<RealmBeatmap>();
 
-        [NotNull]
         public IList<RealmNamedFileUsage> Files { get; } = new List<RealmNamedFileUsage>();
-
-        public double MaxStarDifficulty => Beatmaps?.Max(b => b.StarRating) ?? 0;
-
-        public double MaxLength => Beatmaps?.Max(b => b.Length) ?? 0;
-
-        public double MaxBPM => Beatmaps?.Max(b => b.BPM) ?? 0;
 
         public bool DeletePending { get; set; }
 
-        public string Hash { get; set; }
+        public string Hash { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Whether deleting this beatmap set should be prohibited (due to it being a system requirement to be present).
+        /// </summary>
         public bool Protected { get; set; }
+
+        public double MaxStarDifficulty => Beatmaps.Max(b => b.StarRating);
+
+        public double MaxLength => Beatmaps.Max(b => b.Length);
+
+        public double MaxBPM => Beatmaps.Max(b => b.BPM);
 
         /// <summary>
         /// Returns the storage path for the file in this beatmapset with the given filename, if any exists, otherwise null.
         /// The path returned is relative to the user file storage.
         /// </summary>
         /// <param name="filename">The name of the file to get the storage path of.</param>
-        public string GetPathForFile(string filename) => Files.SingleOrDefault(f => string.Equals(f.Filename, filename, StringComparison.OrdinalIgnoreCase))?.File.StoragePath;
+        public string? GetPathForFile(string filename) => Files.SingleOrDefault(f => string.Equals(f.Filename, filename, StringComparison.OrdinalIgnoreCase))?.File.StoragePath;
 
-        public override string ToString() => Metadata?.ToString() ?? base.ToString();
+        public override string ToString() => Metadata.ToString() ?? base.ToString();
 
-        public bool Equals(RealmBeatmapSet other)
+        public bool Equals(RealmBeatmapSet? other)
         {
             if (other == null)
                 return false;
