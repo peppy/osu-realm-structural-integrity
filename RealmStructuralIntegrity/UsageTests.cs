@@ -58,24 +58,37 @@ namespace osu.Game
                             Artist = "Kuba Oms"
                         };
 
+                        var ruleset = new RealmRuleset
+                        {
+                            OnlineID = 0,
+                            Name = "osu!",
+                            ShortName = "osu",
+                            Available = true
+                        };
+
+                        usage.Realm.Add(ruleset, true);
+
                         var beatmapSet = new RealmBeatmapSet
                         {
                             Beatmaps =
                             {
                                 new RealmBeatmap
                                 {
+                                    Ruleset = ruleset,
                                     DifficultyName = "Easy",
                                     Difficulty = new RealmBeatmapDifficulty(),
                                     Metadata = metdata,
                                 },
                                 new RealmBeatmap
                                 {
+                                    Ruleset = ruleset,
                                     DifficultyName = "Normal",
                                     Difficulty = new RealmBeatmapDifficulty(),
                                     Metadata = metdata,
                                 },
                                 new RealmBeatmap
                                 {
+                                    Ruleset = ruleset,
                                     DifficultyName = "Hard",
                                     Difficulty = new RealmBeatmapDifficulty(),
                                     Metadata = metdata,
