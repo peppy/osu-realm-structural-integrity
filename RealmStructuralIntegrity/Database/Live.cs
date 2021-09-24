@@ -84,8 +84,6 @@ namespace osu.Game.Database
             return retrievedValue = query(retrievedContext);
         }
 
-        public override string ToString() => Value.ToString();
-
         void IRealmBindableActions.RunSetupAction() => fetchThreadLocalValue();
     }
 }
