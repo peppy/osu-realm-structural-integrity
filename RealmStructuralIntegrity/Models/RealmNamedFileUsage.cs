@@ -7,12 +7,12 @@ using Realms;
 
 namespace osu.Game.Models
 {
-    public class RealmBeatmapSetFile : EmbeddedObject, INamedFile, IBeatmapSetFileInfo
+    public class RealmNamedFileUsage : EmbeddedObject, INamedFile, INamedFileUsage
     {
         public RealmFile File { get; set; }
 
         public string Filename { get; set; }
 
-        IFileInfo IBeatmapSetFileInfo.File => File;
+        IFileInfo INamedFileUsage.File => File;
     }
 }

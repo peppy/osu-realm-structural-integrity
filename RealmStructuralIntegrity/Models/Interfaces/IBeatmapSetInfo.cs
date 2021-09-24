@@ -35,7 +35,7 @@ namespace osu.Game.Models.Interfaces
         /// <summary>
         /// All files used by this set.
         /// </summary>
-        IEnumerable<IBeatmapSetFileInfo> Files { get; }
+        IEnumerable<INamedFileUsage> Files { get; }
 
         /// <summary>
         /// The maximum star difficulty of all beatmaps in this set.

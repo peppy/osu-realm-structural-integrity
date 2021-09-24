@@ -3,7 +3,7 @@
 
 namespace osu.Game.Models.Interfaces
 {
-    public interface IBeatmapSetFileInfo
+    public interface INamedFileUsage
     {
         IFileInfo File { get; }
 

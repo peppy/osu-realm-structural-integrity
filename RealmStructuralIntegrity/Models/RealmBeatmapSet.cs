@@ -14,7 +14,7 @@ namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
     [MapTo("BeatmapSet")]
-    public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasFiles<RealmBeatmapSetFile>, ISoftDelete, IEquatable<RealmBeatmapSet>, IBeatmapSetInfo
+    public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasFiles<RealmNamedFileUsage>, ISoftDelete, IEquatable<RealmBeatmapSet>, IBeatmapSetInfo
     {
         public Guid ID { get; set; } = Guid.NewGuid();
 
@@ -27,7 +27,7 @@ namespace osu.Game.Models
         public IList<RealmBeatmap> Beatmaps { get; } = new List<RealmBeatmap>();
 
         [NotNull]
-        public IList<RealmBeatmapSetFile> Files { get; } = new List<RealmBeatmapSetFile>();
+        public IList<RealmNamedFileUsage> Files { get; } = new List<RealmNamedFileUsage>();
 
         /// <summary>
         /// The maximum star difficulty of all beatmaps in this set.
@@ -80,6 +80,6 @@ namespace osu.Game.Models
 
         IEnumerable<IBeatmapInfo> IBeatmapSetInfo.Beatmaps => Beatmaps;
 
-        IEnumerable<IBeatmapSetFileInfo> IBeatmapSetInfo.Files => Files;
+        IEnumerable<INamedFileUsage> IBeatmapSetInfo.Files => Files;
     }
 }
