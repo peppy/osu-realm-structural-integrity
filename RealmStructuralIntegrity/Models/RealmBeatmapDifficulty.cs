@@ -6,6 +6,7 @@ using Realms;
 
 namespace osu.Game.Models
 {
+    [MapTo("BeatmapDifficulty")]
     public class RealmBeatmapDifficulty : EmbeddedObject, IBeatmapDifficultyInfo
     {
         public float DrainRate { get; set; } = IBeatmapDifficultyInfo.DEFAULT_DIFFICULTY;

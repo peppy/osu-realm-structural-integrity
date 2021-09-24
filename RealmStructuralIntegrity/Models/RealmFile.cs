@@ -8,6 +8,7 @@ using Realms;
 
 namespace osu.Game.Models
 {
+    [MapTo("File")]
     public class RealmFile : RealmObject, IFileInfo
     {
         /// <summary>
