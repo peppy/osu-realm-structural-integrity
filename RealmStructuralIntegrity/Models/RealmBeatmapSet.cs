@@ -29,25 +29,17 @@ namespace osu.Game.Models
         [NotNull]
         public IList<RealmNamedFileUsage> Files { get; } = new List<RealmNamedFileUsage>();
 
-        /// <summary>
-        /// The maximum star difficulty of all beatmaps in this set.
-        /// </summary>
         public double MaxStarDifficulty => Beatmaps?.Max(b => b.StarRating) ?? 0;
 
-        /// <summary>
-        /// The maximum playable length in milliseconds of all beatmaps in this set.
-        /// </summary>
         public double MaxLength => Beatmaps?.Max(b => b.Length) ?? 0;
 
-        /// <summary>
-        /// The maximum BPM of all beatmaps in this set.
-        /// </summary>
         public double MaxBPM => Beatmaps?.Max(b => b.BPM) ?? 0;
 
         public bool DeletePending { get; set; }
 
         public string Hash { get; set; }
 
+        public bool Protected { get; set; }
         /// <summary>
         /// Returns the storage path for the file in this beatmapset with the given filename, if any exists, otherwise null.
         /// The path returned is relative to the user file storage.
@@ -56,8 +48,6 @@ namespace osu.Game.Models
         public string GetPathForFile(string filename) => Files.SingleOrDefault(f => string.Equals(f.Filename, filename, StringComparison.OrdinalIgnoreCase))?.File.StoragePath;
 
         public override string ToString() => Metadata?.ToString() ?? base.ToString();
-
-        public bool Protected { get; set; }
 
         public bool Equals(RealmBeatmapSet other)
         {
