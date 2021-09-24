@@ -7,17 +7,14 @@ using System.Linq;
 using Newtonsoft.Json;
 using osu.Framework.Localisation;
 using osu.Framework.Testing;
-using osu.Game.Database;
 using Realms;
 
 namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
     [Serializable]
-    public class BeatmapMetadata : RealmObject, IEquatable<BeatmapMetadata>, IHasGuidPrimaryKey
+    public class BeatmapMetadata : RealmObject, IEquatable<BeatmapMetadata>
     {
-        public Guid ID { get; set; }
-
         public string Title { get; set; }
 
         [JsonProperty("title_unicode")]

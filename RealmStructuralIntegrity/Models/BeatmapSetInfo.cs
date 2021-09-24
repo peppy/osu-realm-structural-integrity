@@ -15,7 +15,7 @@ namespace osu.Game.Models
     [ExcludeFromDynamicCompile]
     public class BeatmapSetInfo : RealmObject, IHasGuidPrimaryKey, IHasFiles<BeatmapSetFileInfo>, ISoftDelete, IEquatable<BeatmapSetInfo>
     {
-        public Guid ID { get; set; }
+        public Guid ID { get; set; } = Guid.NewGuid();
 
         public int? OnlineBeatmapSetID { get; set; }
 
