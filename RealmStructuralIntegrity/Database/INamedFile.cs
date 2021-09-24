@@ -10,8 +10,8 @@ namespace osu.Game.Database
     /// </summary>
     public interface INamedFile
     {
-        string Filename { get; set; }
+        public string Filename { get; set; }
 
-        RealmFile File { get; set; }
+        public RealmFile File { get; set; }
     }
 }

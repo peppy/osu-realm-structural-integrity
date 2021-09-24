@@ -2,11 +2,12 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System.IO;
+using osu.Game.Models.Interfaces;
 using Realms;
 
 namespace osu.Game.Models
 {
-    public class RealmFile : RealmObject
+    public class RealmFile : RealmObject, IFileInfo
     {
         /// <summary>
         /// SHA-256 hash of the file content.
@@ -17,6 +18,7 @@ namespace osu.Game.Models
         /// <summary>
         /// The number of times this file is referenced across all usages.
         /// </summary>
+        [Indexed]
         public int ReferenceCount { get; set; }
 
         public string StoragePath => Path.Combine(Hash.Remove(1), Hash.Remove(2), Hash);

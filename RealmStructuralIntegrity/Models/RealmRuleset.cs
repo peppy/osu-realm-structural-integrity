@@ -5,16 +5,17 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using Newtonsoft.Json;
 using osu.Framework.Testing;
+using osu.Game.Models.Interfaces;
 using Realms;
 
 namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
     [MapTo("Ruleset")]
-    public class RealmRuleset : RealmObject, IEquatable<RealmRuleset>
+    public class RealmRuleset : RealmObject, IEquatable<RealmRuleset>, IRulesetInfo
     {
         [PrimaryKey]
-        public int? ID { get; set; }
+        public int? OnlineID { get; set; }
 
         public string Name { get; set; }
 
@@ -25,7 +26,7 @@ namespace osu.Game.Models
         [JsonIgnore]
         public bool Available { get; set; }
 
-        public bool Equals(RealmRuleset other) => other != null && ID == other.ID && Available == other.Available && Name == other.Name && InstantiationInfo == other.InstantiationInfo;
+        public bool Equals(RealmRuleset other) => other != null && OnlineID == other.OnlineID && Available == other.Available && Name == other.Name && InstantiationInfo == other.InstantiationInfo;
 
         public override bool Equals(object obj) => obj is RealmRuleset rulesetInfo && Equals(rulesetInfo);
 
@@ -34,7 +35,7 @@ namespace osu.Game.Models
         {
             unchecked
             {
-                var hashCode = ID.HasValue ? ID.GetHashCode() : 0;
+                var hashCode = OnlineID.HasValue ? OnlineID.GetHashCode() : 0;
                 hashCode = (hashCode * 397) ^ (InstantiationInfo != null ? InstantiationInfo.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (Name != null ? Name.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ Available.GetHashCode();
@@ -42,11 +43,11 @@ namespace osu.Game.Models
             }
         }
 
-        public override string ToString() => Name ?? $"{Name} ({ShortName}) ID: {ID}";
+        public override string ToString() => Name ?? $"{Name} ({ShortName}) ID: {OnlineID}";
 
         public RealmRuleset Clone() => new RealmRuleset
         {
-            ID = ID,
+            OnlineID = OnlineID,
             Name = Name,
             ShortName = ShortName,
             InstantiationInfo = InstantiationInfo,

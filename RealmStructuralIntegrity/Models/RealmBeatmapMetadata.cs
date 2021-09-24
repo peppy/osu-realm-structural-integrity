@@ -2,11 +2,9 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Newtonsoft.Json;
-using osu.Framework.Localisation;
 using osu.Framework.Testing;
+using osu.Game.Models.Interfaces;
 using Realms;
 
 namespace osu.Game.Models
@@ -14,7 +12,7 @@ namespace osu.Game.Models
     [ExcludeFromDynamicCompile]
     [Serializable]
     [MapTo("BeatmapMetadata")]
-    public class RealmBeatmapMetadata : RealmObject, IEquatable<RealmBeatmapMetadata>
+    public class RealmBeatmapMetadata : RealmObject, IBeatmapMetadataInfo
     {
         public string Title { get; set; }
 
@@ -25,12 +23,6 @@ namespace osu.Game.Models
 
         [JsonProperty("artist_unicode")]
         public string ArtistUnicode { get; set; }
-
-        [JsonIgnore]
-        public IList<RealmBeatmap> Beatmaps { get; } = new List<RealmBeatmap>();
-
-        [JsonIgnore]
-        public IList<RealmBeatmapSet> BeatmapSets { get; } = new List<RealmBeatmapSet>();
 
         public string Author { get; set; } // eventually should be linked to a persisted User.
 
@@ -47,49 +39,5 @@ namespace osu.Game.Models
 
         public string AudioFile { get; set; }
         public string BackgroundFile { get; set; }
-
-        public override string ToString()
-        {
-            string author = Author == null ? string.Empty : $"({Author})";
-            return $"{Artist} - {Title} {author}".Trim();
-        }
-
-        public RomanisableString ToRomanisableString()
-        {
-            string author = Author == null ? string.Empty : $"({Author})";
-            var artistUnicode = string.IsNullOrEmpty(ArtistUnicode) ? Artist : ArtistUnicode;
-            var titleUnicode = string.IsNullOrEmpty(TitleUnicode) ? Title : TitleUnicode;
-
-            return new RomanisableString($"{artistUnicode} - {titleUnicode} {author}".Trim(), $"{Artist} - {Title} {author}".Trim());
-        }
-
-        [JsonIgnore]
-        public string[] SearchableTerms => new[]
-        {
-            Author,
-            Artist,
-            ArtistUnicode,
-            Title,
-            TitleUnicode,
-            Source,
-            Tags
-        }.Where(s => !string.IsNullOrEmpty(s)).ToArray();
-
-        public bool Equals(RealmBeatmapMetadata other)
-        {
-            if (other == null)
-                return false;
-
-            return Title == other.Title
-                   && TitleUnicode == other.TitleUnicode
-                   && Artist == other.Artist
-                   && ArtistUnicode == other.ArtistUnicode
-                   && Author == other.Author
-                   && Source == other.Source
-                   && Tags == other.Tags
-                   && PreviewTime == other.PreviewTime
-                   && AudioFile == other.AudioFile
-                   && BackgroundFile == other.BackgroundFile;
-        }
     }
 }

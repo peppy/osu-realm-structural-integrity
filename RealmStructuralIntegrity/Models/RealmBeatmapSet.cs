@@ -3,22 +3,22 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using JetBrains.Annotations;
 using osu.Framework.Testing;
 using osu.Game.Database;
+using osu.Game.Models.Interfaces;
 using Realms;
 
 namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
     [MapTo("BeatmapSet")]
-    public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasFiles<RealmBeatmapSetFile>, ISoftDelete, IEquatable<RealmBeatmapSet>
+    public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasFiles<RealmBeatmapSetFile>, ISoftDelete, IEquatable<RealmBeatmapSet>, IBeatmapSetInfo
     {
         public Guid ID { get; set; } = Guid.NewGuid();
 
-        public int? OnlineBeatmapSetID { get; set; }
+        public int? OnlineID { get; set; }
 
         public DateTimeOffset DateAdded { get; set; } = DateTimeOffset.Now;
 
@@ -32,7 +32,7 @@ namespace osu.Game.Models
         /// <summary>
         /// The maximum star difficulty of all beatmaps in this set.
         /// </summary>
-        public double MaxStarDifficulty => Beatmaps?.Max(b => b.StarDifficulty) ?? 0;
+        public double MaxStarDifficulty => Beatmaps?.Max(b => b.StarRating) ?? 0;
 
         /// <summary>
         /// The maximum playable length in milliseconds of all beatmaps in this set.
@@ -44,12 +44,9 @@ namespace osu.Game.Models
         /// </summary>
         public double MaxBPM => Beatmaps?.Max(b => b.BPM) ?? 0;
 
-        [NotMapped]
         public bool DeletePending { get; set; }
 
         public string Hash { get; set; }
-
-        public string StoryboardFile => Files.FirstOrDefault(f => f.Filename.EndsWith(".osb", StringComparison.OrdinalIgnoreCase))?.Filename;
 
         /// <summary>
         /// Returns the storage path for the file in this beatmapset with the given filename, if any exists, otherwise null.
@@ -70,13 +67,19 @@ namespace osu.Game.Models
             if (IsManaged && other.IsManaged)
                 return ID == other.ID;
 
-            if (OnlineBeatmapSetID.HasValue && other.OnlineBeatmapSetID.HasValue)
-                return OnlineBeatmapSetID == other.OnlineBeatmapSetID;
+            if (OnlineID.HasValue && other.OnlineID.HasValue)
+                return OnlineID == other.OnlineID;
 
             if (!string.IsNullOrEmpty(Hash) && !string.IsNullOrEmpty(other.Hash))
                 return Hash == other.Hash;
 
             return ReferenceEquals(this, other);
         }
+
+        IBeatmapMetadataInfo IBeatmapSetInfo.Metadata => Metadata;
+
+        IEnumerable<IBeatmapInfo> IBeatmapSetInfo.Beatmaps => Beatmaps;
+
+        IEnumerable<IBeatmapSetFileInfo> IBeatmapSetInfo.Files => Files;
     }
 }

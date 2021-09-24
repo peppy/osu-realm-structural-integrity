@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Nito.AsyncEx;
+using osu.Framework.Extensions;
 using osu.Framework.Testing;
 using osu.Game.Database;
 using osu.Game.Models;
@@ -51,34 +52,69 @@ namespace osu.Game
                 {
                     using (var usage = realmFactory.GetForWrite())
                     {
-                        usage.Realm.Add(new BeatmapSetInfo
+                        var beatmapSet = new RealmBeatmapSet
                         {
                             Beatmaps =
                             {
-                                new BeatmapInfo
+                                new RealmBeatmap
                                 {
-                                    Version = "Easy",
-                                    Difficulty = new BeatmapDifficulty(),
+                                    DifficultyName = "Easy",
+                                    Difficulty = new RealmBeatmapDifficulty(),
                                 },
-                                new BeatmapInfo
+                                new RealmBeatmap
                                 {
-                                    Version = "Normal",
-                                    Difficulty = new BeatmapDifficulty(),
+                                    DifficultyName = "Normal",
+                                    Difficulty = new RealmBeatmapDifficulty(),
                                 },
-                                new BeatmapInfo
+                                new RealmBeatmap
                                 {
-                                    Version = "Hard",
-                                    Difficulty = new BeatmapDifficulty(),
+                                    DifficultyName = "Hard",
+                                    Difficulty = new RealmBeatmapDifficulty(),
                                 }
                             },
-                            Metadata = new BeatmapMetadata
+                            Metadata = new RealmBeatmapMetadata
                             {
                                 Title = "My Love",
                                 Artist = "Kuba Oms"
                             },
-                        });
+                            Files =
+                            {
+                                new RealmNamedFileUsage
+                                {
+                                    Filename = "test [easy].osu",
+                                    File = new RealmFile
+                                    {
+                                        Hash = Guid.NewGuid().ToString().ComputeSHA2Hash()
+                                    }
+                                },
+                                new RealmNamedFileUsage
+                                {
+                                    Filename = "test [normal].osu",
+                                    File = new RealmFile
+                                    {
+                                        Hash = Guid.NewGuid().ToString().ComputeSHA2Hash()
+                                    }
+                                },
+                                new RealmNamedFileUsage
+                                {
+                                    Filename = "test [hard].osu",
+                                    File = new RealmFile
+                                    {
+                                        Hash = Guid.NewGuid().ToString().ComputeSHA2Hash()
+                                    }
+                                },
+                            }
+                        };
+
+                        foreach (var b in beatmapSet.Beatmaps)
+                            b.BeatmapSet = beatmapSet;
+
+                        usage.Realm.Add(beatmapSet);
 
                         usage.Commit();
+
+                        foreach (var file in usage.Realm.All<RealmFile>())
+                            Assert.Equal(1, file.ReferenceCount);
                     }
                 }
             });
@@ -99,7 +135,7 @@ namespace osu.Game
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
 
-                BeatmapInfo beatmap = null;
+                RealmBeatmap beatmap = null;
 
                 Guid key = Guid.Empty;
 
@@ -110,7 +146,7 @@ namespace osu.Game
                     {
                         Assert.NotEqual(context, usage.Realm);
 
-                        usage.Realm.Add(beatmap = new BeatmapInfo());
+                        usage.Realm.Add(beatmap = new RealmBeatmap());
 
                         usage.Commit();
 
@@ -127,7 +163,7 @@ namespace osu.Game
                 context.Refresh();
 
                 // re-retrieve beatmap on main thread.
-                beatmap = context.Find<BeatmapInfo>(key);
+                beatmap = context.Find<RealmBeatmap>(key);
 
                 Assert.Equal(key, beatmap.ID);
             });
@@ -150,9 +186,9 @@ namespace osu.Game
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
 
-                BeatmapInfo beatmap = null;
+                RealmBeatmap beatmap = null;
 
-                ThreadSafeReference.Object<BeatmapInfo> threadSafeReference = null;
+                ThreadSafeReference.Object<RealmBeatmap> threadSafeReference = null;
                 Guid key = Guid.Empty;
 
                 Task.Run(() =>
@@ -162,7 +198,7 @@ namespace osu.Game
                     {
                         Assert.NotEqual(context, usage.Realm);
 
-                        usage.Realm.Add(beatmap = new BeatmapInfo());
+                        usage.Realm.Add(beatmap = new RealmBeatmap());
                         usage.Commit();
 
                         threadSafeReference = ThreadSafeReference.Create(beatmap);
@@ -196,7 +232,7 @@ namespace osu.Game
                     thread1 = Thread.CurrentThread.ManagedThreadId;
 
                     realm = Realm.GetInstance(new RealmConfiguration(Path.GetTempFileName()));
-                    realm.Write(() => realm.Add(new BeatmapInfo()));
+                    realm.Write(() => realm.Add(new RealmBeatmap()));
                     realm.Refresh();
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
 
@@ -206,7 +242,7 @@ namespace osu.Game
 
                     // expected one of these to crash as this context was opened on another thread?
                     realm.Refresh();
-                    realm.Write(() => realm.Add(new BeatmapInfo()));
+                    realm.Write(() => realm.Add(new RealmBeatmap()));
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
             });
         }
@@ -216,7 +252,7 @@ namespace osu.Game
         {
             using var realmFactory = new RealmContextFactory(storage);
 
-            BeatmapInfo beatmap = null;
+            RealmBeatmap beatmap = null;
 
             var syncContext = new SynchronizationContext();
 
@@ -224,7 +260,7 @@ namespace osu.Game
             {
                 using (var usage = realmFactory.GetForWrite())
                 {
-                    usage.Realm.Add(beatmap = new BeatmapInfo());
+                    usage.Realm.Add(beatmap = new RealmBeatmap());
                     usage.Commit();
                 }
             }, TaskCreationOptions.LongRunning).Wait();
@@ -234,7 +270,7 @@ namespace osu.Game
             {
                 thread1 = Thread.CurrentThread.ManagedThreadId;
                 SynchronizationContext.SetSynchronizationContext(syncContext);
-                beatmap = realmFactory.Context.All<BeatmapInfo>().First();
+                beatmap = realmFactory.Context.All<RealmBeatmap>().First();
             }, TaskCreationOptions.LongRunning).Wait();
 
             Task.Factory.StartNew(() =>
