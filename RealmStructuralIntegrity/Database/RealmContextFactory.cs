@@ -53,7 +53,7 @@ namespace osu.Game.Database
                 {
                     if (context == null)
                     {
-                        context = createContext();
+                        context = CreateContext();
                         Logger.Log($"Opened realm \"{context.Config.DatabasePath}\" at version {context.Config.SchemaVersion}");
                     }
 
@@ -72,7 +72,7 @@ namespace osu.Game.Database
         public RealmUsage GetForRead()
         {
             reads.Value++;
-            return new RealmUsage(createContext());
+            return new RealmUsage(CreateContext());
         }
 
         public RealmWriteUsage GetForWrite()
@@ -81,7 +81,7 @@ namespace osu.Game.Database
             pending_writes.Value++;
 
             Monitor.Enter(writeLock);
-            return new RealmWriteUsage(createContext(), writeComplete);
+            return new RealmWriteUsage(CreateContext(), writeComplete);
         }
 
         /// <summary>
@@ -122,7 +122,7 @@ namespace osu.Game.Database
             }
         }
 
-        private Realm createContext()
+        public Realm CreateContext()
         {
             try
             {
