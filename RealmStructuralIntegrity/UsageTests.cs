@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -256,7 +255,7 @@ namespace osu.Game
             AsyncContext.Run(() =>
             {
                 Realm? realm = null;
-                int thread1 = -1;
+                int thread1;
 
                 var ruleset = createRuleset();
 
@@ -264,7 +263,8 @@ namespace osu.Game
                 {
                     thread1 = Thread.CurrentThread.ManagedThreadId;
 
-                    realm = Realm.GetInstance(new RealmConfiguration(Path.GetTempFileName()));
+                    realm = realmFactory.CreateContext();
+
                     realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
                     realm.Refresh();
 
@@ -272,46 +272,43 @@ namespace osu.Game
                     {
                         Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
-                        // expected one of these to crash as this context was opened on another thread?
+                        // expected one of these to crash as this context was opened on another thread
                         Assert.Throws<Exception>(() => realm.Refresh());
                     }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
+
+                realm?.Dispose();
             });
         }
 
         [Fact]
         public void TestThreadedAccessViaSharedSynchronizationContext()
         {
-            RealmBeatmap? beatmap = null;
-
-            var syncContext = new SynchronizationContext();
-
-            Task.Factory.StartNew(() =>
+            AsyncContext.Run(() =>
             {
-                using (var usage = realmFactory.GetForWrite())
+                var syncContext = new LocalSyncContext();
+
+                Realm? realm;
+                int thread1;
+
+                Task.Factory.StartNew(() =>
                 {
-                    usage.Realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
-                    usage.Commit();
-                }
-            }, TaskCreationOptions.LongRunning).Wait();
+                    thread1 = Thread.CurrentThread.ManagedThreadId;
+                    SynchronizationContext.SetSynchronizationContext(syncContext);
 
-            int thread1 = -1;
-            Task.Factory.StartNew(() =>
-            {
-                thread1 = Thread.CurrentThread.ManagedThreadId;
-                SynchronizationContext.SetSynchronizationContext(syncContext);
-                beatmap = realmFactory.Context.All<RealmBeatmap>().First();
-            }, TaskCreationOptions.LongRunning).Wait();
+                    realm = realmFactory.CreateContext();
+                    realm.Write(() => realm.Add(createBeatmapSet(createRuleset())));
+                    realm.Refresh();
 
-            Task.Factory.StartNew(() =>
-            {
-                Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+                    Task.Factory.StartNew(() =>
+                    {
+                        Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+                        SynchronizationContext.SetSynchronizationContext(syncContext);
 
-                Debug.Assert(beatmap != null);
-
-                SynchronizationContext.SetSynchronizationContext(syncContext);
-                Assert.False(beatmap.Hidden);
-            }, TaskCreationOptions.LongRunning).Wait();
+                        realm.Refresh();
+                    }, TaskCreationOptions.LongRunning).Wait();
+                }, TaskCreationOptions.LongRunning).Wait();
+            });
         }
 
         private static RealmBeatmapSet createBeatmapSet(RealmRuleset ruleset)
@@ -353,5 +350,14 @@ namespace osu.Game
 
         private static RealmRuleset createRuleset() =>
             new RealmRuleset(0, "osu!", "osu", true);
+
+        public class LocalSyncContext : SynchronizationContext
+        {
+            public override void Post(SendOrPostCallback d, object? state)
+            {
+                SetSynchronizationContext(this);
+                d(state);
+            }
+        }
     }
 }
