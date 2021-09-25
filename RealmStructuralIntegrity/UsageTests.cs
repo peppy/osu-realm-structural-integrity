@@ -267,17 +267,14 @@ namespace osu.Game
                     realm = Realm.GetInstance(new RealmConfiguration(Path.GetTempFileName()));
                     realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
                     realm.Refresh();
-                }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
 
-                Task.Factory.StartNew(() =>
-                {
-                    Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+                    Task.Factory.StartNew(() =>
+                    {
+                        Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
-                    Debug.Assert(realm != null);
-
-                    // expected one of these to crash as this context was opened on another thread?
-                    realm.Refresh();
-                    realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
+                        // expected one of these to crash as this context was opened on another thread?
+                        Assert.Throws<Exception>(() => realm.Refresh());
+                    }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
             });
         }
