@@ -24,6 +24,8 @@ namespace osu.Game
         private readonly TemporaryNativeStorage storage;
         private readonly RealmContextFactory realmFactory;
 
+        private const int beatmap_import_count = 1000;
+
         public UsageTests(ITestOutputHelper output)
         {
             this.output = output;
@@ -91,7 +93,7 @@ namespace osu.Game
                     var ruleset = createRuleset();
                     usage.Realm.Add(ruleset, true);
 
-                    for (int i = 0; i < 10000; i++)
+                    for (int i = 0; i < beatmap_import_count; i++)
                     {
                         var beatmapSet = createBeatmapSet(ruleset);
                         usage.Realm.Add(beatmapSet);
@@ -114,7 +116,7 @@ namespace osu.Game
 
                 realmFactory.Context.Write(() => realmFactory.Context.Add(ruleset, true));
 
-                for (int i = 0; i < 10000; i++)
+                for (int i = 0; i < beatmap_import_count; i++)
                 {
                     using (var transaction = realmFactory.Context.BeginWrite())
                     {
