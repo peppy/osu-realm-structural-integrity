@@ -312,15 +312,20 @@ namespace osu.Game
                 {
                     new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Easy", },
                     new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Normal", },
-                    new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Hard", }
+                    new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Hard", },
+                    new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata) { DifficultyName = "Insane", }
                 },
                 Files =
                 {
                     new RealmNamedFileUsage(createRealmFile(), "test [easy].osu"),
                     new RealmNamedFileUsage(createRealmFile(), "test [normal].osu"),
                     new RealmNamedFileUsage(createRealmFile(), "test [hard].osu"),
+                    new RealmNamedFileUsage(createRealmFile(), "test [insane].osu"),
                 }
             };
+
+            for (int i = 0; i < 8; i++)
+                beatmapSet.Files.Add(new RealmNamedFileUsage(createRealmFile(), $"hitsound{i}.mp3"));
 
             foreach (var b in beatmapSet.Beatmaps)
                 b.BeatmapSet = beatmapSet;
