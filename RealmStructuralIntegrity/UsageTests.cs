@@ -250,6 +250,41 @@ namespace osu.Game
         }
 
         [Fact]
+        public void TestThreadedAccessViaLive()
+        {
+            AsyncContext.Run(() =>
+            {
+                Realm? realm = null;
+                int thread1;
+
+                var ruleset = createRuleset();
+
+                Task.Factory.StartNew(() =>
+                {
+                    thread1 = Thread.CurrentThread.ManagedThreadId;
+
+                    realm = realmFactory.CreateContext();
+
+                    var beatmap = realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
+
+                    var liveBeatmap = new Live<RealmBeatmap>(beatmap, realmFactory);
+
+                    Task.Factory.StartNew(() =>
+                    {
+                        Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+
+                        liveBeatmap.PerformRead(b =>
+                        {
+                            output.WriteLine(b.DifficultyName);
+                        });
+                    }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
+                }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
+
+                realm?.Dispose();
+            });
+        }
+
+        [Fact]
         public void TestThreadedAccessWithoutSharedSynchronizationContext()
         {
             AsyncContext.Run(() =>
