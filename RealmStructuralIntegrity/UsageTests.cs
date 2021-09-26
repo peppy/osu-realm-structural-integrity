@@ -267,16 +267,15 @@ namespace osu.Game
 
                     var beatmap = realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
 
-                    var liveBeatmap = new Live<RealmBeatmap>(beatmap, realmFactory);
+                    var liveBeatmap = beatmap.ToLive();
 
                     Task.Factory.StartNew(() =>
                     {
                         Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
-                        liveBeatmap.PerformRead(b =>
-                        {
-                            output.WriteLine(b.DifficultyName);
-                        });
+                        liveBeatmap.PerformRead(b => { output.WriteLine(b.DifficultyName); });
+
+                        Assert.Throws<InvalidOperationException>(() => liveBeatmap.PerformRead(b => b.Difficulty));
                     }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
 
