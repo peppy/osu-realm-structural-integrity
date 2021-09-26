@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Nito.AsyncEx;
@@ -16,36 +17,23 @@ using Xunit.Abstractions;
 namespace osu.Game
 {
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
-    public class UsageTests : IDisposable
+    public class UsageTests
     {
         private readonly ITestOutputHelper output;
 
-        private readonly TemporaryNativeStorage storage;
-        private readonly RealmContextFactory realmFactory;
+        private static readonly TemporaryNativeStorage storage;
 
         private const int beatmap_set_import_count = 1000;
+
+        static UsageTests()
+        {
+            storage = new TemporaryNativeStorage("realm-test");
+            storage.DeleteDirectory(string.Empty);
+        }
 
         public UsageTests(ITestOutputHelper output)
         {
             this.output = output;
-
-            storage = new TemporaryNativeStorage("realm-test");
-            realmFactory = new RealmContextFactory(storage);
-
-            output.WriteLine($"Running tests at storage location {storage.GetFullPath(string.Empty)}");
-        }
-
-        public void Dispose()
-        {
-            realmFactory.Dispose();
-
-            output.WriteLine($"Final database size: {storage.GetStream("client.realm")?.Length ?? 0}");
-
-            realmFactory.Compact();
-
-            output.WriteLine($"Final database size after compact: {storage.GetStream("client.realm")?.Length ?? 0}");
-
-            storage.Dispose();
         }
 
         /// <summary>
@@ -54,7 +42,7 @@ namespace osu.Game
         [Fact]
         public void TestConstructRealm()
         {
-            AsyncContext.Run(() => { realmFactory.Context.Refresh(); });
+            runTestWithRealm(realmFactory => { realmFactory.Context.Refresh(); });
         }
 
         /// <summary>
@@ -63,7 +51,7 @@ namespace osu.Game
         [Fact]
         public void TestImportSingleBeatmap()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
                 using (var usage = realmFactory.GetForWrite())
                 {
@@ -85,7 +73,7 @@ namespace osu.Game
         [Fact]
         public void TestImportManyBeatmapsSingleTransaction()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
                 using (var usage = realmFactory.GetForWrite())
                 {
@@ -109,7 +97,7 @@ namespace osu.Game
         [Fact]
         public void TestImportManyBeatmapsIndividualTransactions()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
                 var ruleset = createRuleset();
 
@@ -134,16 +122,9 @@ namespace osu.Game
                     }
                 });
 
-                int refreshCount = 0;
-
-                while (!task.IsCompleted)
-                {
-                    realmFactory.Context.Refresh();
-                    refreshCount++;
-                }
+                refreshUntilCompleted(realmFactory, task);
 
                 output.WriteLine($"inserted {realmFactory.Context.All<RealmBeatmapSet>().Count()} sets");
-                output.WriteLine($"refreshed {refreshCount} times");
 
                 foreach (var file in realmFactory.Context.All<RealmFile>())
                     Assert.Equal(1, file.ReferenceCount);
@@ -158,7 +139,7 @@ namespace osu.Game
         [Fact]
         public void TestThreadedAccessViaPrimaryKey()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
@@ -209,7 +190,7 @@ namespace osu.Game
         [Fact]
         public void TestThreadedAccessViaSafeReference()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
@@ -252,41 +233,45 @@ namespace osu.Game
         [Fact]
         public void TestThreadedAccessViaLive()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
-                Realm? realm = null;
                 int thread1;
 
                 var ruleset = createRuleset();
 
-                Task.Factory.StartNew(() =>
+                var task = Task.Factory.StartNew(() =>
                 {
                     thread1 = Thread.CurrentThread.ManagedThreadId;
 
-                    realm = realmFactory.CreateContext();
-
-                    var beatmap = realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
-
-                    var liveBeatmap = beatmap.ToLive();
-
-                    Task.Factory.StartNew(() =>
+                    using (var realm = realmFactory.CreateContext())
                     {
-                        Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+                        var beatmap = realm.Write(() => realm.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
 
-                        liveBeatmap.PerformRead(b => { output.WriteLine(b.DifficultyName); });
+                        var liveBeatmap = beatmap.ToLive();
 
-                        Assert.Throws<InvalidOperationException>(() => liveBeatmap.PerformRead(b => b.Difficulty));
-                    }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
-                }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
+                        Task.Factory.StartNew(() =>
+                        {
+                            Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
-                realm?.Dispose();
+                            liveBeatmap.PerformRead(b => { output.WriteLine(b.DifficultyName); });
+
+                            liveBeatmap.PerformWrite(b => b.Hidden = true);
+
+                            Assert.Throws<InvalidOperationException>(() => liveBeatmap.PerformRead(b => b.Difficulty));
+                        }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler).Wait();
+                    }
+                }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler);
+
+                refreshUntilCompleted(realmFactory, task);
+
+                Assert.Equal(1, realmFactory.Context.All<RealmBeatmap>().Count(b => b.Hidden));
             });
         }
 
         [Fact]
         public void TestThreadedAccessWithoutSharedSynchronizationContext()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
                 Realm? realm = null;
                 int thread1;
@@ -318,7 +303,7 @@ namespace osu.Game
         [Fact]
         public void TestThreadedAccessViaSharedSynchronizationContext()
         {
-            AsyncContext.Run(() =>
+            runTestWithRealm(realmFactory =>
             {
                 var syncContext = new LocalSyncContext();
 
@@ -342,6 +327,37 @@ namespace osu.Game
                         realm.Refresh();
                     }, TaskCreationOptions.LongRunning).Wait();
                 }, TaskCreationOptions.LongRunning).Wait();
+            });
+        }
+
+        private void refreshUntilCompleted(RealmContextFactory realmFactory, Task task)
+        {
+            int refreshCount = 0;
+
+            while (!task.IsCompleted)
+            {
+                realmFactory.Context.Refresh();
+                refreshCount++;
+            }
+
+            output.WriteLine($"refreshed {refreshCount} times");
+        }
+
+        private void runTestWithRealm(Action<RealmContextFactory> testAction, [CallerMemberName] string caller = "")
+        {
+            AsyncContext.Run(() =>
+            {
+                using (var realmFactory = new RealmContextFactory(storage, caller))
+                {
+                    output.WriteLine($"Running test using realm file {storage.GetFullPath(realmFactory.Filename)}");
+                    testAction(realmFactory);
+
+                    realmFactory.Dispose();
+                    output.WriteLine($"Final database size: {storage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+
+                    realmFactory.Compact();
+                    output.WriteLine($"Final database size after compact: {storage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+                }
             });
         }
 

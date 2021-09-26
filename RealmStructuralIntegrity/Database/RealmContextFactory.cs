@@ -17,7 +17,7 @@ namespace osu.Game.Database
     {
         private readonly Storage storage;
 
-        private const string database_name = @"client";
+        public readonly string Filename;
 
         private const int schema_version = 6;
 
@@ -64,9 +64,16 @@ namespace osu.Game.Database
             }
         }
 
-        public RealmContextFactory(Storage storage)
+        public RealmContextFactory(Storage storage, string filename)
         {
             this.storage = storage;
+
+            Filename = filename;
+
+            const string realm_extension = ".realm";
+
+            if (!Filename.EndsWith(realm_extension, StringComparison.Ordinal))
+                Filename += realm_extension;
         }
 
         public RealmUsage GetForRead()
@@ -145,7 +152,7 @@ namespace osu.Game.Database
 
         private RealmConfiguration getConfiguration()
         {
-            return new RealmConfiguration(storage.GetFullPath($"{database_name}.realm", true))
+            return new RealmConfiguration(storage.GetFullPath(Filename, true))
             {
                 SchemaVersion = schema_version,
                 MigrationCallback = onMigration,
@@ -204,7 +211,7 @@ namespace osu.Game.Database
             {
                 try
                 {
-                    storage.DeleteDatabase(database_name);
+                    storage.DeleteDatabase(Filename);
                 }
                 catch
                 {
