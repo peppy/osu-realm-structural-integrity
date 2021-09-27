@@ -53,20 +53,20 @@ namespace osu.Game
         {
             runTestWithRealm(realmFactory =>
             {
-                using (var usage = realmFactory.GetForWrite())
+                var realm = realmFactory.Context;
+
+                realm.Write(() =>
                 {
                     var ruleset = createRuleset();
-                    usage.Realm.Add(ruleset, true);
+                    realm.Add(ruleset, true);
 
                     var beatmapSet = createBeatmapSet(ruleset);
 
-                    usage.Realm.Add(beatmapSet);
+                    realm.Add(beatmapSet);
+                });
 
-                    usage.Commit();
-
-                    foreach (var file in usage.Realm.All<RealmFile>())
-                        Assert.Equal(1, file.ReferenceCount);
-                }
+                foreach (var file in realm.All<RealmFile>())
+                    Assert.Equal(1, file.ReferenceCount);
             });
         }
 
@@ -75,22 +75,22 @@ namespace osu.Game
         {
             runTestWithRealm(realmFactory =>
             {
-                using (var usage = realmFactory.GetForWrite())
+                var realm = realmFactory.Context;
+
+                realm.Write(() =>
                 {
                     var ruleset = createRuleset();
-                    usage.Realm.Add(ruleset, true);
+                    realm.Add(ruleset, true);
 
                     for (int i = 0; i < beatmap_set_import_count; i++)
                     {
                         var beatmapSet = createBeatmapSet(ruleset);
-                        usage.Realm.Add(beatmapSet);
+                        realm.Add(beatmapSet);
                     }
+                });
 
-                    usage.Commit();
-
-                    foreach (var file in usage.Realm.All<RealmFile>())
-                        Assert.Equal(1, file.ReferenceCount);
-                }
+                foreach (var file in realm.All<RealmFile>())
+                    Assert.Equal(1, file.ReferenceCount);
             });
         }
 
@@ -101,32 +101,28 @@ namespace osu.Game
             {
                 var ruleset = createRuleset();
 
-                realmFactory.Context.Write(() => realmFactory.Context.Add(ruleset, true));
+                var realm = realmFactory.Context;
+
+                realm.Write(() => realm.Add(ruleset, true));
 
                 var threadRef = ThreadSafeReference.Create(ruleset);
 
                 var task = Task.Factory.StartNew(() =>
                 {
-                    using (var threadContext = realmFactory.CreateContext())
+                    using (var innerRealm = realmFactory.CreateContext())
                     {
-                        ruleset = threadContext.ResolveReference(threadRef);
+                        ruleset = innerRealm.ResolveReference(threadRef);
 
                         for (int i = 0; i < beatmap_set_import_count; i++)
-                        {
-                            using (var transaction = threadContext.BeginWrite())
-                            {
-                                threadContext.Add(createBeatmapSet(ruleset));
-                                transaction.Commit();
-                            }
-                        }
+                            innerRealm.Write(() => innerRealm.Add(createBeatmapSet(ruleset)));
                     }
                 });
 
-                refreshUntilCompleted(realmFactory, task);
+                refreshUntilCompleted(realm, task);
 
-                output.WriteLine($"inserted {realmFactory.Context.All<RealmBeatmapSet>().Count()} sets");
+                output.WriteLine($"inserted {realm.All<RealmBeatmapSet>().Count()} sets");
 
-                foreach (var file in realmFactory.Context.All<RealmFile>())
+                foreach (var file in realm.All<RealmFile>())
                     Assert.Equal(1, file.ReferenceCount);
             });
         }
@@ -151,13 +147,15 @@ namespace osu.Game
                 Task.Run(() =>
                 {
                     // write to realm on an async thread.
-                    using (var usage = realmFactory.GetForWrite())
+                    using (var realm = realmFactory.CreateContext())
                     {
-                        Assert.NotEqual(context, usage.Realm);
+                        Assert.NotEqual(context, realm);
 
-                        usage.Realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
-
-                        usage.Commit();
+                        using (var transaction = realm.BeginWrite())
+                        {
+                            realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
+                            transaction.Commit();
+                        }
 
                         // the key must be accessed before the local context is closed.
                         key = beatmap.ID;
@@ -203,14 +201,19 @@ namespace osu.Game
                 Task.Run(() =>
                 {
                     // write to realm on an async thread.
-                    using (var usage = realmFactory.GetForWrite())
+                    using (var realm = realmFactory.CreateContext())
                     {
-                        Assert.NotEqual(context, usage.Realm);
+                        Assert.NotEqual(context, realm);
 
-                        usage.Realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
-                        usage.Commit();
+                        using (var transaction = realm.BeginWrite())
+                        {
+                            realm.Add(beatmap = new RealmBeatmap(createRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
+                            transaction.Commit();
+                        }
 
                         threadSafeReference = ThreadSafeReference.Create(beatmap);
+
+                        // the key must be accessed before the local context is closed.
                         key = beatmap.ID;
                     }
                 }).Wait();
@@ -262,7 +265,7 @@ namespace osu.Game
                     }
                 }, TaskCreationOptions.LongRunning | TaskCreationOptions.HideScheduler);
 
-                refreshUntilCompleted(realmFactory, task);
+                refreshUntilCompleted(realmFactory.Context, task);
 
                 Assert.Equal(1, realmFactory.Context.All<RealmBeatmap>().Count(b => b.Hidden));
             });
@@ -330,13 +333,13 @@ namespace osu.Game
             });
         }
 
-        private void refreshUntilCompleted(RealmContextFactory realmFactory, Task task)
+        private void refreshUntilCompleted(Realm realm, Task task)
         {
             int refreshCount = 0;
 
             while (!task.IsCompleted)
             {
-                realmFactory.Context.Refresh();
+                realm.Refresh();
                 refreshCount++;
             }
 

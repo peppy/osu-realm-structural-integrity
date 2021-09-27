@@ -28,16 +28,12 @@ namespace osu.Game.Database
         private const int schema_version = 6;
 
         /// <summary>
-        /// Lock object which is held during <see cref="BlockAllOperations"/> sections.
+        /// Lock object which is held during <see cref="BlockAllOperations"/> sections, blocking context creation during blocking periods.
         /// </summary>
-        private readonly SemaphoreSlim blockingLock = new SemaphoreSlim(1);
+        private readonly SemaphoreSlim contextCreationLock = new SemaphoreSlim(1);
 
-        private static readonly GlobalStatistic<int> reads = GlobalStatistics.Get<int>("Realm", "Get (Read)");
-        private static readonly GlobalStatistic<int> writes = GlobalStatistics.Get<int>("Realm", "Get (Write)");
         private static readonly GlobalStatistic<int> refreshes = GlobalStatistics.Get<int>("Realm", "Dirty Refreshes");
         private static readonly GlobalStatistic<int> contexts_created = GlobalStatistics.Get<int>("Realm", "Contexts (Created)");
-        private static readonly GlobalStatistic<int> pending_writes = GlobalStatistics.Get<int>("Realm", "Pending writes");
-        private static readonly GlobalStatistic<int> active_usages = GlobalStatistics.Get<int>("Realm", "Active usages");
 
         private Realm? context;
 
@@ -45,17 +41,17 @@ namespace osu.Game.Database
         {
             get
             {
+                // TODO: uncomment when integrating with osu!.
                 // if (!ThreadSafety.IsUpdateThread)
                 //     throw new InvalidOperationException($"Use {nameof(GetForRead)} or {nameof(GetForWrite)} when performing realm operations from a non-update thread");
 
                 if (context == null)
                 {
-                    context = CreateContext();
+                    context = createContext();
                     Logger.Log($"Opened realm \"{context.Config.DatabasePath}\" at version {context.Config.SchemaVersion}");
                 }
 
                 // creating a context will ensure our schema is up-to-date and migrated.
-
                 return context;
             }
         }
@@ -72,19 +68,22 @@ namespace osu.Game.Database
                 Filename += realm_extension;
         }
 
-        public RealmUsage GetForRead()
+        public Realm CreateContext()
         {
-            reads.Value++;
-            return new RealmUsage(CreateContext());
+            if (IsDisposed)
+                throw new ObjectDisposedException(nameof(RealmContextFactory));
+
+            if (ThreadSafety.IsUpdateThread)
+                throw new InvalidOperationException($"Use {nameof(Context)} when accessing realm from the update thread.");
+
+            return createContext();
         }
 
-        public RealmWriteUsage GetForWrite()
-        {
-            writes.Value++;
-            pending_writes.Value++;
-
-            return new RealmWriteUsage(CreateContext(), writeComplete);
-        }
+        /// <summary>
+        /// Compact this realm.
+        /// </summary>
+        /// <returns></returns>
+        public bool Compact() => Realm.Compact(getConfiguration());
 
         protected override void Update()
         {
@@ -94,23 +93,11 @@ namespace osu.Game.Database
                 refreshes.Value++;
         }
 
-        /// <summary>
-        /// Create a new realm context for use on an arbitrary thread.
-        /// </summary>
-        /// <remarks>
-        /// This should not be used from the update thread. Use <see cref="Context"/> instead.
-        /// </remarks>
-        public Realm CreateContext()
+        private Realm createContext()
         {
             try
             {
-                if (IsDisposed)
-                    throw new ObjectDisposedException(nameof(RealmContextFactory));
-
-                if (!ThreadSafety.IsUpdateThread)
-                    throw new InvalidOperationException($"Use {nameof(Context)} when accessing realm from the update thread.");
-
-                blockingLock.Wait();
+                contextCreationLock.Wait();
 
                 contexts_created.Value++;
 
@@ -118,15 +105,9 @@ namespace osu.Game.Database
             }
             finally
             {
-                blockingLock.Release();
+                contextCreationLock.Release();
             }
         }
-
-        /// <summary>
-        /// Compact this realm.
-        /// </summary>
-        /// <returns></returns>
-        public bool Compact() => Realm.Compact(getConfiguration());
 
         private RealmConfiguration getConfiguration()
         {
@@ -136,8 +117,6 @@ namespace osu.Game.Database
                 MigrationCallback = onMigration,
             };
         }
-
-        private static void writeComplete() => pending_writes.Value--;
 
         private void onMigration(Migration migration, ulong lastSchemaVersion)
         {
@@ -158,10 +137,7 @@ namespace osu.Game.Database
 
             Logger.Log(@"Blocking realm operations.", LoggingTarget.Database);
 
-            blockingLock.Wait();
-
-            while (active_usages.Value > 0)
-                Thread.Sleep(50);
+            contextCreationLock.Wait();
 
             context?.Dispose();
             context = null;
@@ -170,7 +146,7 @@ namespace osu.Game.Database
 
             static void endBlockingSection(RealmContextFactory factory)
             {
-                factory.blockingLock.Release();
+                factory.contextCreationLock.Release();
                 Logger.Log(@"Restoring realm operations.", LoggingTarget.Database);
             }
         }
@@ -183,72 +159,10 @@ namespace osu.Game.Database
             {
                 // intentionally block all operations indefinitely. this ensures that nothing can start consuming a new context after disposal.
                 BlockAllOperations();
-                blockingLock.Dispose();
+                contextCreationLock.Dispose();
             }
 
             base.Dispose(isDisposing);
-        }
-
-        /// <summary>
-        /// A usage of realm from an arbitrary thread.
-        /// </summary>
-        public class RealmUsage : IDisposable
-        {
-            public readonly Realm Realm;
-
-            internal RealmUsage(Realm context)
-            {
-                active_usages.Value++;
-                Realm = context;
-            }
-
-            /// <summary>
-            /// Disposes this instance, calling the initially captured action.
-            /// </summary>
-            public virtual void Dispose()
-            {
-                Realm.Dispose();
-                active_usages.Value--;
-            }
-        }
-
-        /// <summary>
-        /// A transaction used for making changes to realm data.
-        /// </summary>
-        public class RealmWriteUsage : RealmUsage
-        {
-            private readonly Action onWriteComplete;
-            private readonly Transaction transaction;
-
-            internal RealmWriteUsage(Realm context, Action onWriteComplete)
-                : base(context)
-            {
-                this.onWriteComplete = onWriteComplete;
-                transaction = Realm.BeginWrite();
-            }
-
-            /// <summary>
-            /// Commit all changes made in this transaction.
-            /// </summary>
-            public void Commit() => transaction.Commit();
-
-            /// <summary>
-            /// Revert all changes made in this transaction.
-            /// </summary>
-            public void Rollback() => transaction.Rollback();
-
-            /// <summary>
-            /// Disposes this instance, calling the initially captured action.
-            /// </summary>
-            public override void Dispose()
-            {
-                // rollback if not explicitly committed.
-                transaction.Dispose();
-
-                base.Dispose();
-
-                onWriteComplete();
-            }
         }
     }
 }
