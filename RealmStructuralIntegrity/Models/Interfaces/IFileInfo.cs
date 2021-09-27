@@ -12,10 +12,5 @@ namespace osu.Game.Models.Interfaces
         /// SHA-256 hash of the file content.
         /// </summary>
         string Hash { get; }
-
-        /// <summary>
-        /// The number of times this file is referenced across all usages.
-        /// </summary>
-        int ReferenceCount { get; }
     }
 }
