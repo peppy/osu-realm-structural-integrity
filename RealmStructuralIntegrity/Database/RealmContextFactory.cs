@@ -2,7 +2,6 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
@@ -13,18 +12,19 @@ using Realms;
 
 namespace osu.Game.Database
 {
+    /// <summary>
+    /// A factory which provides both the main (update thread bound) realm context and creates contexts for async usage.
+    /// </summary>
     public class RealmContextFactory : Component, IRealmFactory
     {
         private readonly Storage storage;
 
+        /// <summary>
+        /// The filename of this realm.
+        /// </summary>
         public readonly string Filename;
 
         private const int schema_version = 6;
-
-        /// <summary>
-        /// Lock object which is held for the duration of a write operation (via <see cref="GetForWrite"/>).
-        /// </summary>
-        private readonly object writeLock = new object();
 
         /// <summary>
         /// Lock object which is held during <see cref="BlockAllOperations"/> sections.
@@ -38,8 +38,6 @@ namespace osu.Game.Database
         private static readonly GlobalStatistic<int> pending_writes = GlobalStatistics.Get<int>("Realm", "Pending writes");
         private static readonly GlobalStatistic<int> active_usages = GlobalStatistics.Get<int>("Realm", "Active usages");
 
-        private readonly object updateContextLock = new object();
-
         private Realm? context;
 
         public Realm Context
@@ -49,18 +47,15 @@ namespace osu.Game.Database
                 // if (!ThreadSafety.IsUpdateThread)
                 //     throw new InvalidOperationException($"Use {nameof(GetForRead)} or {nameof(GetForWrite)} when performing realm operations from a non-update thread");
 
-                lock (updateContextLock)
+                if (context == null)
                 {
-                    if (context == null)
-                    {
-                        context = CreateContext();
-                        Logger.Log($"Opened realm \"{context.Config.DatabasePath}\" at version {context.Config.SchemaVersion}");
-                    }
-
-                    // creating a context will ensure our schema is up-to-date and migrated.
-
-                    return context;
+                    context = CreateContext();
+                    Logger.Log($"Opened realm \"{context.Config.DatabasePath}\" at version {context.Config.SchemaVersion}");
                 }
+
+                // creating a context will ensure our schema is up-to-date and migrated.
+
+                return context;
             }
         }
 
@@ -87,48 +82,23 @@ namespace osu.Game.Database
             writes.Value++;
             pending_writes.Value++;
 
-            Monitor.Enter(writeLock);
             return new RealmWriteUsage(CreateContext(), writeComplete);
-        }
-
-        /// <summary>
-        /// Flush any active contexts and block any further writes.
-        /// </summary>
-        /// <remarks>
-        /// This should be used in places we need to ensure no ongoing reads/writes are occurring with realm.
-        /// ie. to move the realm backing file to a new location.
-        /// </remarks>
-        /// <returns>An <see cref="IDisposable"/> which should be disposed to end the blocking section.</returns>
-        public IDisposable BlockAllOperations()
-        {
-            if (IsDisposed)
-                throw new ObjectDisposedException(nameof(RealmContextFactory));
-
-            Logger.Log(@"Blocking realm operations.", LoggingTarget.Database);
-
-            blockingLock.Wait();
-            flushContexts();
-
-            return new InvokeOnDisposal<RealmContextFactory>(this, endBlockingSection);
-
-            static void endBlockingSection(RealmContextFactory factory)
-            {
-                factory.blockingLock.Release();
-                Logger.Log(@"Restoring realm operations.", LoggingTarget.Database);
-            }
         }
 
         protected override void Update()
         {
             base.Update();
 
-            lock (updateContextLock)
-            {
-                if (context?.Refresh() == true)
-                    refreshes.Value++;
-            }
+            if (context?.Refresh() == true)
+                refreshes.Value++;
         }
 
+        /// <summary>
+        /// Create a new realm context for use on an arbitrary thread.
+        /// </summary>
+        /// <remarks>
+        /// This should not be used from the update thread. Use <see cref="Context"/> instead.
+        /// </remarks>
         public Realm CreateContext()
         {
             try
@@ -148,7 +118,11 @@ namespace osu.Game.Database
             }
         }
 
-        public void Compact() => Realm.Compact(getConfiguration());
+        /// <summary>
+        /// Compact this realm.
+        /// </summary>
+        /// <returns></returns>
+        public bool Compact() => Realm.Compact(getConfiguration());
 
         private RealmConfiguration getConfiguration()
         {
@@ -159,36 +133,42 @@ namespace osu.Game.Database
             };
         }
 
-        private void writeComplete()
-        {
-            Monitor.Exit(writeLock);
-            pending_writes.Value--;
-        }
+        private static void writeComplete() => pending_writes.Value--;
 
         private void onMigration(Migration migration, ulong lastSchemaVersion)
         {
         }
 
-        private void flushContexts()
+        /// <summary>
+        /// Flush any active contexts and block any further writes.
+        /// </summary>
+        /// <remarks>
+        /// This should be used in places we need to ensure no ongoing reads/writes are occurring with realm.
+        /// ie. to move the realm backing file to a new location.
+        /// </remarks>
+        /// <returns>An <see cref="IDisposable"/> which should be disposed to end the blocking section.</returns>
+        public IDisposable BlockAllOperations()
         {
-            Logger.Log(@"Flushing realm contexts...", LoggingTarget.Database);
-            Debug.Assert(blockingLock.CurrentCount == 0);
+            if (IsDisposed)
+                throw new ObjectDisposedException(nameof(RealmContextFactory));
 
-            Realm? previousContext;
+            Logger.Log(@"Blocking realm operations.", LoggingTarget.Database);
 
-            lock (updateContextLock)
-            {
-                previousContext = context;
-                context = null;
-            }
+            blockingLock.Wait();
 
-            // wait for all threaded usages to finish
             while (active_usages.Value > 0)
                 Thread.Sleep(50);
 
-            previousContext?.Dispose();
+            context?.Dispose();
+            context = null;
 
-            Logger.Log(@"Realm contexts flushed.", LoggingTarget.Database);
+            return new InvokeOnDisposal<RealmContextFactory>(this, endBlockingSection);
+
+            static void endBlockingSection(RealmContextFactory factory)
+            {
+                factory.blockingLock.Release();
+                Logger.Log(@"Restoring realm operations.", LoggingTarget.Database);
+            }
         }
 
         protected override void Dispose(bool isDisposing)
@@ -203,21 +183,6 @@ namespace osu.Game.Database
             }
 
             base.Dispose(isDisposing);
-        }
-
-        public void ResetDatabase()
-        {
-            using (BlockAllOperations())
-            {
-                try
-                {
-                    storage.DeleteDatabase(Filename);
-                }
-                catch
-                {
-                    // for now we are not sure why file handles are kept open by EF, but this is generally only used in testing
-                }
-            }
         }
 
         /// <summary>
