@@ -8,11 +8,9 @@ namespace osu.Game.Database
     /// <summary>
     /// A model that contains a list of files it is responsible for.
     /// </summary>
-    /// <typeparam name="TFile">The model representing a file.</typeparam>
-    public interface IHasFiles<TFile>
-        where TFile : INamedFile
+    public interface IHasFiles
     {
-        IList<TFile> Files { get; }
+        IEnumerable<INamedFile> Files { get; }
 
         string Hash { get; set; }
     }
