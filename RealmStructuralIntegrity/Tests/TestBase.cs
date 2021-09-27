@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Nito.AsyncEx;
 using osu.Framework.Extensions;
+using osu.Framework.Platform;
 using osu.Framework.Testing;
 using osu.Game.Database;
 using osu.Game.Models;
@@ -30,20 +31,22 @@ namespace osu.Game.Tests
             Logger = logger;
         }
 
-        protected void RunTestWithRealm(Action<RealmContextFactory> testAction, [CallerMemberName] string caller = "")
+        protected void RunTestWithRealm(Action<RealmContextFactory, Storage> testAction, [CallerMemberName] string caller = "")
         {
             AsyncContext.Run(() =>
             {
-                using (var realmFactory = new RealmContextFactory(storage, caller))
+                var testStorage = storage.GetStorageForDirectory(caller);
+
+                using (var realmFactory = new RealmContextFactory(testStorage, caller))
                 {
-                    Logger.WriteLine($"Running test using realm file {storage.GetFullPath(realmFactory.Filename)}");
-                    testAction(realmFactory);
+                    Logger.WriteLine($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
+                    testAction(realmFactory, testStorage);
 
                     realmFactory.Dispose();
-                    Logger.WriteLine($"Final database size: {storage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+                    Logger.WriteLine($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
 
                     realmFactory.Compact();
-                    Logger.WriteLine($"Final database size after compact: {storage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+                    Logger.WriteLine($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
                 }
             });
         }

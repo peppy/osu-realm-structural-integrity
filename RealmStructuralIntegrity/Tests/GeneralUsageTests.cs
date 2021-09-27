@@ -28,7 +28,7 @@ namespace osu.Game.Tests
         [Fact]
         public void TestConstructRealm()
         {
-            RunTestWithRealm(realmFactory => { realmFactory.Context.Refresh(); });
+            RunTestWithRealm((realmFactory, storage) => { realmFactory.Context.Refresh(); });
         }
 
         /// <summary>
@@ -37,7 +37,7 @@ namespace osu.Game.Tests
         [Fact]
         public void TestImportSingleBeatmap()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 var realm = realmFactory.Context;
 
@@ -52,14 +52,14 @@ namespace osu.Game.Tests
                 });
 
                 foreach (var file in realm.All<RealmFile>())
-                    Assert.Equal(1, file.ReferenceCount);
+                    Assert.Equal(1, file.Usages.Count());
             });
         }
 
         [Fact]
         public void TestImportManyBeatmapsSingleTransaction()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 var realm = realmFactory.Context;
 
@@ -76,14 +76,14 @@ namespace osu.Game.Tests
                 });
 
                 foreach (var file in realm.All<RealmFile>())
-                    Assert.Equal(1, file.ReferenceCount);
+                    Assert.Equal(1, file.Usages.Count());
             });
         }
 
         [Fact]
         public void TestImportManyBeatmapsIndividualTransactions()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 var ruleset = CreateRuleset();
 
@@ -109,7 +109,7 @@ namespace osu.Game.Tests
                 Logger.WriteLine($"inserted {realm.All<RealmBeatmapSet>().Count()} sets");
 
                 foreach (var file in realm.All<RealmFile>())
-                    Assert.Equal(1, file.ReferenceCount);
+                    Assert.Equal(1, file.Usages.Count());
             });
         }
 
@@ -121,7 +121,7 @@ namespace osu.Game.Tests
         [Fact]
         public void TestThreadedAccessViaPrimaryKey()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
@@ -174,7 +174,7 @@ namespace osu.Game.Tests
         [Fact]
         public void TestThreadedAccessViaSafeReference()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
@@ -222,7 +222,7 @@ namespace osu.Game.Tests
         [Fact]
         public void TestThreadedAccessViaLive()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 int thread1;
 
@@ -260,7 +260,7 @@ namespace osu.Game.Tests
         [Fact]
         public void TestThreadedAccessWithoutSharedSynchronizationContext()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 Realm? realm = null;
                 int thread1;
@@ -292,7 +292,7 @@ namespace osu.Game.Tests
         [Fact]
         public void TestThreadedAccessViaSharedSynchronizationContext()
         {
-            RunTestWithRealm(realmFactory =>
+            RunTestWithRealm((realmFactory, storage) =>
             {
                 var syncContext = new LocalSyncContext();
 
