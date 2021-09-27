@@ -2,15 +2,16 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System.Collections.Generic;
+using osu.Game.Models;
 
 namespace osu.Game.Database
 {
     /// <summary>
     /// A model that contains a list of files it is responsible for.
     /// </summary>
-    public interface IHasFiles
+    public interface IHasRealmFiles
     {
-        IEnumerable<INamedFile> Files { get; }
+        IList<RealmNamedFileUsage> Files { get; }
 
         string Hash { get; set; }
     }

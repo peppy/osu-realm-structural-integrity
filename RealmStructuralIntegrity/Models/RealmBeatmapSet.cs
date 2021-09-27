@@ -13,7 +13,7 @@ namespace osu.Game.Models
 {
     [ExcludeFromDynamicCompile]
     [MapTo("BeatmapSet")]
-    public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasFiles<RealmNamedFileUsage>, ISoftDelete, IEquatable<RealmBeatmapSet>, IBeatmapSetInfo
+    public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasRealmFiles, ISoftDelete, IEquatable<RealmBeatmapSet>, IBeatmapSetInfo
     {
         public Guid ID { get; set; } = Guid.NewGuid();
 
