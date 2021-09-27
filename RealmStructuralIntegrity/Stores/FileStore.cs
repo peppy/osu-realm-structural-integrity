@@ -27,6 +27,7 @@ namespace osu.Game.Stores
         public FileStore(RealmContextFactory realmFactory, Storage storage)
         {
             this.realmFactory = realmFactory;
+
             Storage = storage.GetStorageForDirectory(@"files");
             Store = new StorageBackedResourceStore(Storage);
         }
@@ -45,32 +46,36 @@ namespace osu.Game.Stores
 
             var file = existing ?? new RealmFile { Hash = hash };
 
-            string path = file.StoragePath;
-
-            // we may be re-adding a file to fix missing store entries.
-            bool requiresCopy = !Storage.Exists(path);
-
-            if (!requiresCopy)
-            {
-                // even if the file already exists, check the existing checksum for safety.
-                using (var stream = Storage.GetStream(path))
-                    requiresCopy |= stream.ComputeSHA2Hash() != hash;
-            }
-
-            if (requiresCopy)
-            {
-                data.Seek(0, SeekOrigin.Begin);
-
-                using (var output = Storage.GetStream(path, FileAccess.Write))
-                    data.CopyTo(output);
-
-                data.Seek(0, SeekOrigin.Begin);
-            }
+            if (!checkFileExistsAndMatchesHash(file))
+                copyToStore(file, data);
 
             if (!file.IsManaged)
                 realm.Add(file);
 
             return file;
+        }
+
+        private void copyToStore(RealmFile file, Stream data)
+        {
+            data.Seek(0, SeekOrigin.Begin);
+
+            using (var output = Storage.GetStream(file.StoragePath, FileAccess.Write))
+                data.CopyTo(output);
+
+            data.Seek(0, SeekOrigin.Begin);
+        }
+
+        private bool checkFileExistsAndMatchesHash(RealmFile file)
+        {
+            string path = file.StoragePath;
+
+            // we may be re-adding a file to fix missing store entries.
+            if (!Storage.Exists(path))
+                return false;
+
+            // even if the file already exists, check the existing checksum for safety.
+            using (var stream = Storage.GetStream(path))
+                return stream.ComputeSHA2Hash() == file.Hash;
         }
 
         public void Cleanup()
