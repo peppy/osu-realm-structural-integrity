@@ -4,6 +4,7 @@
 using System;
 using System.Threading;
 using osu.Framework.Allocation;
+using osu.Framework.Development;
 using osu.Framework.Graphics;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
@@ -105,6 +106,9 @@ namespace osu.Game.Database
             {
                 if (IsDisposed)
                     throw new ObjectDisposedException(nameof(RealmContextFactory));
+
+                if (!ThreadSafety.IsUpdateThread)
+                    throw new InvalidOperationException($"Use {nameof(Context)} when accessing realm from the update thread.");
 
                 blockingLock.Wait();
 
