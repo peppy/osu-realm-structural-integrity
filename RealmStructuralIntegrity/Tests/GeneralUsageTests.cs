@@ -14,10 +14,10 @@ using Realms;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace osu.Game
+namespace osu.Game.Tests
 {
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
-    public class UsageTests
+    public class GeneralUsageTests
     {
         private readonly ITestOutputHelper output;
 
@@ -25,13 +25,13 @@ namespace osu.Game
 
         private const int beatmap_set_import_count = 1000;
 
-        static UsageTests()
+        static GeneralUsageTests()
         {
             storage = new TemporaryNativeStorage("realm-test");
             storage.DeleteDirectory(string.Empty);
         }
 
-        public UsageTests(ITestOutputHelper output)
+        public GeneralUsageTests(ITestOutputHelper output)
         {
             this.output = output;
         }
