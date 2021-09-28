@@ -191,7 +191,7 @@ namespace osu.Game.Stores
 
                             using (var transaction = realm.BeginWrite())
                             {
-                                markForDeletion(existing, realm, false);
+                                MarkForDeletion(existing, realm, false);
                                 transaction.Commit();
                             }
 
@@ -208,17 +208,18 @@ namespace osu.Game.Stores
                 {
                     LogForModel(item, @"Beginning import...");
 
-                    if (archive != null)
-                        // TODO: look into rollback of file additions (or delayed commit).
-                        item.Files.AddRange(createFileInfos(archive, Files, realm));
-
-                    item.Hash = ComputeHash(item, archive);
-
-                    await Populate(item, archive, cancellationToken).ConfigureAwait(false);
-
                     // TODO: do we want to make the transaction this local? not 100% sure, will need further investigation.
                     using (var transaction = realm.BeginWrite())
                     {
+                        if (archive != null)
+                            // TODO: look into rollback of file additions (or delayed commit).
+                            item.Files.AddRange(createFileInfos(archive, Files, realm));
+
+                        item.Hash = ComputeHash(item, archive);
+
+                        // TODO: we may want to run this outside of the transaction.
+                        await Populate(item, archive, realm, cancellationToken).ConfigureAwait(false);
+
                         if (!checkedExisting)
                             existing = CheckForExisting(item, realm);
 
@@ -227,7 +228,7 @@ namespace osu.Game.Stores
                             if (CanReuseExisting(existing, item))
                             {
                                 LogForModel(item, @$"Found existing {HumanisedModelName} for {item} (ID {existing.ID}) – skipping import.");
-                                markForDeletion(existing, realm, false);
+                                MarkForDeletion(existing, realm, false);
 
                                 flushEvents(true);
                                 return existing;
@@ -235,13 +236,13 @@ namespace osu.Game.Stores
 
                             LogForModel(item, @"Found existing but failed re-use check.");
 
-                            markForDeletion(existing, realm, true);
+                            MarkForDeletion(existing, realm, true);
 
                             // todo: actually delete? i don't think this is required...
                             // ModelStore.PurgeDeletable(s => s.ID == existing.ID);
                         }
 
-                        PreImport(item);
+                        PreImport(item, realm);
 
                         // import to store
                         realm.Add(item);
@@ -265,7 +266,7 @@ namespace osu.Game.Stores
             }
         }, cancellationToken, TaskCreationOptions.HideScheduler, lowPriority ? import_scheduler_low_priority : import_scheduler).Unwrap().ConfigureAwait(false);
 
-        private static void markForDeletion(TModel existing, Realm realm, bool delete)
+        protected static void MarkForDeletion(TModel existing, Realm realm, bool delete)
         {
             if (existing.DeletePending == delete)
                 return;
@@ -334,14 +335,16 @@ namespace osu.Game.Stores
         /// </summary>
         /// <param name="model">The model to populate.</param>
         /// <param name="archive">The archive to use as a reference for population. May be null.</param>
+        /// <param name="realm">The current realm context.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
-        protected abstract Task Populate(TModel model, ArchiveReader? archive, CancellationToken cancellationToken = default);
+        protected abstract Task Populate(TModel model, ArchiveReader? archive, Realm realm, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Perform any final actions before the import to database executes.
         /// </summary>
         /// <param name="model">The model prepared for import.</param>
-        protected virtual void PreImport(TModel model)
+        /// <param name="realm">The current realm context.</param>
+        protected virtual void PreImport(TModel model, Realm realm)
         {
         }
 
