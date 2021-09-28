@@ -137,11 +137,7 @@ namespace osu.Game.Tests
                     {
                         Assert.NotEqual(context, realm);
 
-                        using (var transaction = realm.BeginWrite())
-                        {
-                            realm.Add(beatmap = new RealmBeatmap(CreateRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
-                            transaction.Commit();
-                        }
+                        beatmap = realm.Write(r => r.Add(new RealmBeatmap(CreateRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
 
                         // the key must be accessed before the local context is closed.
                         key = beatmap.ID;
@@ -191,11 +187,7 @@ namespace osu.Game.Tests
                     {
                         Assert.NotEqual(context, realm);
 
-                        using (var transaction = realm.BeginWrite())
-                        {
-                            realm.Add(beatmap = new RealmBeatmap(CreateRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
-                            transaction.Commit();
-                        }
+                        beatmap = realm.Write(r => r.Add(new RealmBeatmap(CreateRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
 
                         threadSafeReference = ThreadSafeReference.Create(beatmap);
 

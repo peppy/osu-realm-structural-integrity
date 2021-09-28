@@ -82,6 +82,7 @@ namespace osu.Game.Stores
         {
             var realm = realmFactory.Context;
 
+            // can potentially be run asynchronously, although we will need to consider operation order for disk deletion vs realm removal.
             using (var transaction = realm.BeginWrite())
             {
                 var unreferencedFiles = realm.All<RealmFile>().ToList();
