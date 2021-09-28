@@ -5,30 +5,25 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Nito.AsyncEx;
+using NUnit.Framework;
 using osu.Framework.Extensions;
+using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Framework.Testing;
 using osu.Game.Database;
 using osu.Game.Models;
-using Xunit.Abstractions;
 
 namespace osu.Game.Tests
 {
+    [TestFixture]
     public abstract class TestBase
     {
-        protected readonly ITestOutputHelper Logger;
-
         private static readonly TemporaryNativeStorage storage;
 
         static TestBase()
         {
             storage = new TemporaryNativeStorage("realm-test");
             storage.DeleteDirectory(string.Empty);
-        }
-
-        protected TestBase(ITestOutputHelper logger)
-        {
-            Logger = logger;
         }
 
         protected void RunTestWithRealm(Action<RealmContextFactory, Storage> testAction, [CallerMemberName] string caller = "")
@@ -39,14 +34,14 @@ namespace osu.Game.Tests
 
                 using (var realmFactory = new RealmContextFactory(testStorage, caller))
                 {
-                    Logger.WriteLine($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
+                    Logger.Log($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
                     testAction(realmFactory, testStorage);
 
                     realmFactory.Dispose();
-                    Logger.WriteLine($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+                    Logger.Log($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
 
                     realmFactory.Compact();
-                    Logger.WriteLine($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+                    Logger.Log($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
                 }
             });
         }

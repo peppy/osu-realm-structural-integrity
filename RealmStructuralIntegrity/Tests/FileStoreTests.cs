@@ -4,21 +4,16 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using NUnit.Framework;
+using osu.Framework.Logging;
 using osu.Game.Models;
 using osu.Game.Stores;
-using Xunit;
-using Xunit.Abstractions;
 
 namespace osu.Game.Tests
 {
     public class FileStoreTests : TestBase
     {
-        public FileStoreTests(ITestOutputHelper logger)
-            : base(logger)
-        {
-        }
-
-        [Fact]
+        [Test]
         public void TestImportFile()
         {
             RunTestWithRealm((realmFactory, storage) =>
@@ -35,7 +30,7 @@ namespace osu.Game.Tests
             });
         }
 
-        [Fact]
+        [Test]
         public void TestImportSameFileTwice()
         {
             RunTestWithRealm((realmFactory, storage) =>
@@ -48,11 +43,11 @@ namespace osu.Game.Tests
                 realm.Write(() => files.Add(testData, realm));
                 realm.Write(() => files.Add(testData, realm));
 
-                Assert.Equal(1, realm.All<RealmFile>().Count());
+                Assert.AreEqual(1, realm.All<RealmFile>().Count());
             });
         }
 
-        [Fact]
+        [Test]
         public void TestDontPurgeReferenced()
         {
             RunTestWithRealm((realmFactory, storage) =>
@@ -75,7 +70,7 @@ namespace osu.Game.Tests
                     realm.Add(beatmapSet);
                 });
 
-                Logger.WriteLine($"Import complete at {timer.ElapsedMilliseconds}");
+                Logger.Log($"Import complete at {timer.ElapsedMilliseconds}");
 
                 string path = file.StoragePath;
 
@@ -83,7 +78,7 @@ namespace osu.Game.Tests
                 Assert.True(files.Storage.Exists(path));
 
                 files.Cleanup();
-                Logger.WriteLine($"Cleanup complete at {timer.ElapsedMilliseconds}");
+                Logger.Log($"Cleanup complete at {timer.ElapsedMilliseconds}");
 
                 Assert.True(realm.All<RealmFile>().Any());
                 Assert.True(file.IsValid);
@@ -91,7 +86,7 @@ namespace osu.Game.Tests
             });
         }
 
-        [Fact]
+        [Test]
         public void TestPurgeUnreferenced()
         {
             RunTestWithRealm((realmFactory, storage) =>

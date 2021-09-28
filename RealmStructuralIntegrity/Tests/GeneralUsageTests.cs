@@ -4,40 +4,36 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using NUnit.Framework;
+using osu.Framework.Logging;
 using osu.Game.Database;
 using osu.Game.Models;
 using Realms;
-using Xunit;
-using Xunit.Abstractions;
 
 namespace osu.Game.Tests
 {
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
+    [TestFixture]
     public class GeneralUsageTests : TestBase
     {
         private const int beatmap_set_import_count = 1000;
 
-        public GeneralUsageTests(ITestOutputHelper logger)
-            : base(logger)
-        {
-        }
-
         /// <summary>
         /// Just test the construction of a new database works.
         /// </summary>
-        [Fact]
+        [Test]
         public void TestConstructRealm()
         {
-            RunTestWithRealm((realmFactory, storage) => { realmFactory.Context.Refresh(); });
+            RunTestWithRealm((realmFactory, _) => { realmFactory.Context.Refresh(); });
         }
 
         /// <summary>
         /// Just test the construction of a new database works.
         /// </summary>
-        [Fact]
+        [Test]
         public void TestImportSingleBeatmap()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 var realm = realmFactory.Context;
 
@@ -52,14 +48,14 @@ namespace osu.Game.Tests
                 });
 
                 foreach (var file in realm.All<RealmFile>())
-                    Assert.Equal(1, file.Usages.Count());
+                    Assert.AreEqual(1, file.Usages.Count());
             });
         }
 
-        [Fact]
+        [Test]
         public void TestImportManyBeatmapsSingleTransaction()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 var realm = realmFactory.Context;
 
@@ -76,14 +72,14 @@ namespace osu.Game.Tests
                 });
 
                 foreach (var file in realm.All<RealmFile>())
-                    Assert.Equal(1, file.Usages.Count());
+                    Assert.AreEqual(1, file.Usages.Count());
             });
         }
 
-        [Fact]
+        [Test]
         public void TestImportManyBeatmapsIndividualTransactions()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 var ruleset = CreateRuleset();
 
@@ -106,10 +102,10 @@ namespace osu.Game.Tests
 
                 refreshUntilCompleted(realm, task);
 
-                Logger.WriteLine($"inserted {realm.All<RealmBeatmapSet>().Count()} sets");
+                Logger.Log($"inserted {realm.All<RealmBeatmapSet>().Count()} sets");
 
                 foreach (var file in realm.All<RealmFile>())
-                    Assert.Equal(1, file.Usages.Count());
+                    Assert.AreEqual(1, file.Usages.Count());
             });
         }
 
@@ -118,10 +114,10 @@ namespace osu.Game.Tests
         /// Of note, this will only work if Refresh is first called on the target context to pull in the changes.
         /// Because of this there's a chance it might not resolve (if the object was since deleted).
         /// </summary>
-        [Fact]
+        [Test]
         public void TestThreadedAccessViaPrimaryKey()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
@@ -135,7 +131,7 @@ namespace osu.Game.Tests
                     // write to realm on an async thread.
                     using (var realm = realmFactory.CreateContext())
                     {
-                        Assert.NotEqual(context, realm);
+                        Assert.AreNotEqual(context, realm);
 
                         beatmap = realm.Write(r => r.Add(new RealmBeatmap(CreateRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
 
@@ -156,7 +152,7 @@ namespace osu.Game.Tests
                 // re-retrieve beatmap on main thread.
                 beatmap = context.Find<RealmBeatmap>(key);
 
-                Assert.Equal(key, beatmap.ID);
+                Assert.AreEqual(key, beatmap.ID);
             });
         }
 
@@ -167,10 +163,10 @@ namespace osu.Game.Tests
         /// - This method does not require a Refresh() call on the target context, making it potentially beneficial compared to a key lookup.
         /// - ResolveReference may return null if the referenced object has been deleted.
         /// </summary>
-        [Fact]
+        [Test]
         public void TestThreadedAccessViaSafeReference()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 // retrieve context to bind main realm to this thread.
                 var context = realmFactory.Context;
@@ -185,7 +181,7 @@ namespace osu.Game.Tests
                     // write to realm on an async thread.
                     using (var realm = realmFactory.CreateContext())
                     {
-                        Assert.NotEqual(context, realm);
+                        Assert.AreNotEqual(context, realm);
 
                         beatmap = realm.Write(r => r.Add(new RealmBeatmap(CreateRuleset(), new RealmBeatmapDifficulty(), new RealmBeatmapMetadata())));
 
@@ -207,14 +203,14 @@ namespace osu.Game.Tests
                 // re-retrieve beatmap on main thread.
                 beatmap = context.ResolveReference(threadSafeReference);
 
-                Assert.Equal(key, beatmap.ID);
+                Assert.AreEqual(key, beatmap.ID);
             });
         }
 
-        [Fact]
+        [Test]
         public void TestThreadedAccessViaLive()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 int thread1;
 
@@ -232,9 +228,9 @@ namespace osu.Game.Tests
 
                         Task.Factory.StartNew(() =>
                         {
-                            Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+                            Assert.AreNotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
-                            liveBeatmap.PerformRead(b => { Logger.WriteLine(b.DifficultyName); });
+                            liveBeatmap.PerformRead(b => { Logger.Log(b.DifficultyName); });
 
                             liveBeatmap.PerformWrite(b => b.Hidden = true);
 
@@ -245,14 +241,14 @@ namespace osu.Game.Tests
 
                 refreshUntilCompleted(realmFactory.Context, task);
 
-                Assert.Equal(1, realmFactory.Context.All<RealmBeatmap>().Count(b => b.Hidden));
+                Assert.AreEqual(1, realmFactory.Context.All<RealmBeatmap>().Count(b => b.Hidden));
             });
         }
 
-        [Fact]
+        [Test]
         public void TestThreadedAccessWithoutSharedSynchronizationContext()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 Realm? realm = null;
                 int thread1;
@@ -270,7 +266,7 @@ namespace osu.Game.Tests
 
                     Task.Factory.StartNew(() =>
                     {
-                        Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+                        Assert.AreNotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
 
                         // expected one of these to crash as this context was opened on another thread
                         Assert.Throws<Exception>(() => realm.Refresh());
@@ -281,10 +277,10 @@ namespace osu.Game.Tests
             });
         }
 
-        [Fact]
+        [Test]
         public void TestThreadedAccessViaSharedSynchronizationContext()
         {
-            RunTestWithRealm((realmFactory, storage) =>
+            RunTestWithRealm((realmFactory, _) =>
             {
                 var syncContext = new LocalSyncContext();
 
@@ -302,7 +298,7 @@ namespace osu.Game.Tests
 
                     Task.Factory.StartNew(() =>
                     {
-                        Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
+                        Assert.AreNotEqual(Thread.CurrentThread.ManagedThreadId, thread1);
                         SynchronizationContext.SetSynchronizationContext(syncContext);
 
                         realm.Refresh();
@@ -321,7 +317,7 @@ namespace osu.Game.Tests
                 refreshCount++;
             }
 
-            Logger.WriteLine($"refreshed {refreshCount} times");
+            Logger.Log($"refreshed {refreshCount} times");
         }
     }
 }
