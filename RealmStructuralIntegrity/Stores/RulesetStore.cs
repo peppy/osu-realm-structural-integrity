@@ -11,6 +11,7 @@ using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Game.Database;
 using osu.Game.Models;
+using osu.Game.Models.Interfaces;
 using osu.Game.Rulesets;
 
 namespace osu.Game.Stores
@@ -22,12 +23,16 @@ namespace osu.Game.Stores
 
         private readonly Dictionary<Assembly, Type> loadedAssemblies = new Dictionary<Assembly, Type>();
 
-        private readonly Storage rulesetStorage;
+        /// <summary>
+        /// All available rulesets.
+        /// </summary>
+        public IEnumerable<IRulesetInfo> AvailableRulesets => availableRulesets;
 
-        public RulesetStore(RealmContextFactory realmFactory, Storage storage = null)
+        private readonly List<IRulesetInfo> availableRulesets = new List<IRulesetInfo>();
+
+        public RulesetStore(RealmContextFactory realmFactory, Storage? storage = null)
         {
             this.realmFactory = realmFactory;
-            rulesetStorage = storage?.GetStorageForDirectory("rulesets");
 
             // On android in release configuration assemblies are loaded from the apk directly into memory.
             // We cannot read assemblies from cwd, so should check loaded assemblies instead.
@@ -44,7 +49,9 @@ namespace osu.Game.Stores
             // to load as unable to locate the game core assembly.
             AppDomain.CurrentDomain.AssemblyResolve += resolveRulesetDependencyAssembly;
 
-            loadUserRulesets();
+            var rulesetStorage = storage?.GetStorageForDirectory("rulesets");
+            if (rulesetStorage != null)
+                loadUserRulesets(rulesetStorage);
 
             addMissingRulesets();
         }
@@ -54,21 +61,16 @@ namespace osu.Game.Stores
         /// </summary>
         /// <param name="id">The ruleset's internal ID.</param>
         /// <returns>A ruleset, if available, else null.</returns>
-        public RealmRuleset? GetRuleset(int id) => AvailableRulesets.FirstOrDefault(r => r.OnlineID == id);
+        public IRulesetInfo? GetRuleset(int id) => AvailableRulesets.FirstOrDefault(r => r.OnlineID == id);
 
         /// <summary>
         /// Retrieve a ruleset using a known short name.
         /// </summary>
         /// <param name="shortName">The ruleset's short name.</param>
         /// <returns>A ruleset, if available, else null.</returns>
-        public RealmRuleset GetRuleset(string shortName) => AvailableRulesets.FirstOrDefault(r => r.ShortName == shortName);
+        public IRulesetInfo? GetRuleset(string shortName) => AvailableRulesets.FirstOrDefault(r => r.ShortName == shortName);
 
-        /// <summary>
-        /// All available rulesets.
-        /// </summary>
-        public IEnumerable<RealmRuleset> AvailableRulesets { get; private set; }
-
-        private Assembly resolveRulesetDependencyAssembly(object sender, ResolveEventArgs args)
+        private Assembly? resolveRulesetDependencyAssembly(object? sender, ResolveEventArgs args)
         {
             var asm = new AssemblyName(args.Name);
 
@@ -77,7 +79,14 @@ namespace osu.Game.Stores
             // already loaded in the AppDomain.
             var domainAssembly = AppDomain.CurrentDomain.GetAssemblies()
                                           // Given name is always going to be equally-or-more qualified than the assembly name.
-                                          .Where(a => args.Name.Contains(a.GetName().Name, StringComparison.Ordinal))
+                                          .Where(a =>
+                                          {
+                                              string? name = a.GetName().Name;
+                                              if (name == null)
+                                                  return false;
+
+                                              return args.Name.Contains(name, StringComparison.Ordinal);
+                                          })
                                           // Pick the greatest assembly version.
                                           .OrderByDescending(a => a.GetName().Version)
                                           .FirstOrDefault();
@@ -152,7 +161,7 @@ namespace osu.Game.Stores
                     }
                 }
 
-                AvailableRulesets = detachedRulesets;
+                availableRulesets.AddRange(detachedRulesets);
             });
         }
 
@@ -160,19 +169,20 @@ namespace osu.Game.Stores
         {
             foreach (var ruleset in AppDomain.CurrentDomain.GetAssemblies())
             {
-                string rulesetName = ruleset.GetName().Name;
+                string? rulesetName = ruleset.GetName().Name;
 
-                if (!rulesetName.StartsWith(ruleset_library_prefix, StringComparison.InvariantCultureIgnoreCase) || ruleset.GetName().Name.Contains("Tests"))
+                if (rulesetName == null)
+                    continue;
+
+                if (!rulesetName.StartsWith(ruleset_library_prefix, StringComparison.InvariantCultureIgnoreCase) || rulesetName.Contains("Tests"))
                     continue;
 
                 addRuleset(ruleset);
             }
         }
 
-        private void loadUserRulesets()
+        private void loadUserRulesets(Storage rulesetStorage)
         {
-            if (rulesetStorage == null) return;
-
             var rulesets = rulesetStorage.GetFiles(".", $"{ruleset_library_prefix}.*.dll");
 
             foreach (var ruleset in rulesets.Where(f => !f.Contains("Tests")))

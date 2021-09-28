@@ -17,8 +17,7 @@ namespace osu.Game.Tests
             {
                 var importer = new BeatmapImporter(storage, realmFactory);
 
-                var rulesetStore = new RulesetStore(realmFactory, storage);
-
+                using (new RulesetStore(realmFactory, storage))
                 using (var reader = new ZipArchiveReader(TestResources.GetTestBeatmapStream()))
                     importer.Import(reader).Wait();
             });
