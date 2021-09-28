@@ -15,13 +15,26 @@
         <PackageReference Include="Nito.AsyncEx" Version="5.1.0" />
         <PackageReference Include="NUnit" Version="3.13.2" />
         <PackageReference Include="NUnit3TestAdapter" Version="4.0.0" />
-        <PackageReference Include="ppy.osu.Framework" Version="2021.916.1" />
-        <PackageReference Include="ppy.osu.Game" Version="2021.916.0" />
         <PackageReference Include="Realm" Version="10.5.0" />
         <PackageReference Include="coverlet.collector" Version="3.0.2">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="osu.Game.Tests, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\..\osu\osu.Game.Tests\bin\Debug\net5.0\osu.Game.Tests.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\osu\osu.Game.Rulesets.Catch\osu.Game.Rulesets.Catch.csproj" />
+      <ProjectReference Include="..\..\osu\osu.Game.Rulesets.Mania\osu.Game.Rulesets.Mania.csproj" />
+      <ProjectReference Include="..\..\osu\osu.Game.Rulesets.Osu\osu.Game.Rulesets.Osu.csproj" />
+      <ProjectReference Include="..\..\osu\osu.Game.Rulesets.Taiko\osu.Game.Rulesets.Taiko.csproj" />
+      <ProjectReference Include="..\..\osu\osu.Game.Tests\osu.Game.Tests.csproj" />
+      <ProjectReference Include="..\..\osu\osu.Game\osu.Game.csproj" />
     </ItemGroup>
 
 </Project>
