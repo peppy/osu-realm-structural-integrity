@@ -4,7 +4,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Nito.AsyncEx;
 using NUnit.Framework;
 using osu.Framework.Extensions;
 using osu.Framework.Logging;
@@ -28,22 +27,19 @@ namespace osu.Game.Tests
 
         protected void RunTestWithRealm(Action<RealmContextFactory, Storage> testAction, [CallerMemberName] string caller = "")
         {
-            AsyncContext.Run(() =>
+            var testStorage = storage.GetStorageForDirectory(caller);
+
+            using (var realmFactory = new RealmContextFactory(testStorage, caller))
             {
-                var testStorage = storage.GetStorageForDirectory(caller);
+                Logger.Log($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
+                testAction(realmFactory, testStorage);
 
-                using (var realmFactory = new RealmContextFactory(testStorage, caller))
-                {
-                    Logger.Log($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
-                    testAction(realmFactory, testStorage);
+                realmFactory.Dispose();
+                Logger.Log($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
 
-                    realmFactory.Dispose();
-                    Logger.Log($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
-
-                    realmFactory.Compact();
-                    Logger.Log($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
-                }
-            });
+                realmFactory.Compact();
+                Logger.Log($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+            }
         }
 
         protected static RealmBeatmapSet CreateBeatmapSet(RealmRuleset ruleset)

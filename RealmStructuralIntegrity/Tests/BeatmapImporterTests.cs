@@ -12,7 +12,7 @@ using osu.Game.Tests.Resources;
 namespace osu.Game.Tests
 {
     [TestFixture]
-    public class ArchiveModelImporterTests : TestBase
+    public class BeatmapImporterTests : TestBase
     {
         [Test]
         public void TestImportBeatmapThenCleanup()
