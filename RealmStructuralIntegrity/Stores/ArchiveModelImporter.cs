@@ -191,7 +191,7 @@ namespace osu.Game.Stores
 
                             using (var transaction = realm.BeginWrite())
                             {
-                                MarkForDeletion(existing, realm, false);
+                                existing.DeletePending = false;
                                 transaction.Commit();
                             }
 
@@ -228,7 +228,7 @@ namespace osu.Game.Stores
                             if (CanReuseExisting(existing, item))
                             {
                                 LogForModel(item, @$"Found existing {HumanisedModelName} for {item} (ID {existing.ID}) – skipping import.");
-                                MarkForDeletion(existing, realm, false);
+                                existing.DeletePending = false;
 
                                 flushEvents(true);
                                 return existing;
@@ -236,7 +236,7 @@ namespace osu.Game.Stores
 
                             LogForModel(item, @"Found existing but failed re-use check.");
 
-                            MarkForDeletion(existing, realm, true);
+                            existing.DeletePending = true;
 
                             // todo: actually delete? i don't think this is required...
                             // ModelStore.PurgeDeletable(s => s.ID == existing.ID);
@@ -265,14 +265,6 @@ namespace osu.Game.Stores
                 return item;
             }
         }, cancellationToken, TaskCreationOptions.HideScheduler, lowPriority ? import_scheduler_low_priority : import_scheduler).Unwrap().ConfigureAwait(false);
-
-        protected static void MarkForDeletion(TModel existing, Realm realm, bool delete)
-        {
-            if (existing.DeletePending == delete)
-                return;
-
-            realm.Write(() => existing.DeletePending = delete);
-        }
 
         private string computeHashFast(ArchiveReader reader)
         {
