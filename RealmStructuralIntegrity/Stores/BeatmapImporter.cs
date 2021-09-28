@@ -8,8 +8,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NuGet.Packaging;
+using osu.Framework.Audio.Track;
 using osu.Framework.Extensions;
 using osu.Framework.Extensions.IEnumerableExtensions;
+using osu.Framework.Graphics.Textures;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Framework.Testing;
@@ -19,6 +21,9 @@ using osu.Game.Database;
 using osu.Game.IO;
 using osu.Game.IO.Archives;
 using osu.Game.Models;
+using osu.Game.Models.Interfaces;
+using osu.Game.Rulesets.Objects;
+using osu.Game.Skinning;
 using Realms;
 
 namespace osu.Game.Stores
@@ -91,7 +96,7 @@ namespace osu.Game.Stores
 
                 if (existingOnlineId != null)
                 {
-                    MarkForDeletion(existingOnlineId, realm, true);
+                    existingOnlineId.DeletePending = true;
 
                     // in order to avoid a unique key constraint, immediately remove the online ID from the previous set.
                     existingOnlineId.OnlineID = null;
@@ -207,29 +212,78 @@ namespace osu.Game.Stores
                     if (beatmaps.Any(b => b.Hash == hash))
                         continue;
 
-                    beatmap.BeatmapInfo.Path = file.Filename;
-                    beatmap.BeatmapInfo.Hash = hash;
-                    beatmap.BeatmapInfo.MD5Hash = ms.ComputeMD5Hash();
+                    var beatmapInfo = beatmap.BeatmapInfo;
 
-                    var ruleset = realm.All<RealmRuleset>().FirstOrDefault(r => r.OnlineID == beatmap.BeatmapInfo.RulesetID);
+                    var ruleset = realm.All<RealmRuleset>().FirstOrDefault(r => r.OnlineID == beatmapInfo.RulesetID);
+                    var rulesetInstance = (ruleset as IRulesetInfo)?.CreateInstance();
 
-                    if (ruleset == null)
+                    if (ruleset == null || rulesetInstance == null)
                     {
-                        Logger.Log($"Skipping import due to missing local ruleset {beatmap.BeatmapInfo.RulesetID}.", LoggingTarget.Database);
+                        Logger.Log($"Skipping import due to missing local ruleset {beatmapInfo.RulesetID}.", LoggingTarget.Database);
                         continue;
                     }
 
-                    // beatmap.BeatmapInfo.Ruleset = ruleset;
+                    beatmapInfo.Path = file.Filename;
+                    beatmapInfo.Hash = hash;
+                    beatmapInfo.MD5Hash = ms.ComputeMD5Hash();
 
-                    // // TODO: this should be done in a better place once we actually need to dynamically update it.
-                    // beatmap.BeatmapInfo.StarDifficulty = ruleset?.CreateInstance().CreateDifficultyCalculator(new DummyConversionBeatmap(beatmap)).Calculate().StarRating ?? 0;
-                    // beatmap.BeatmapInfo.Length = calculateLength(beatmap);
-                    // beatmap.BeatmapInfo.BPM = 60000 / beatmap.GetMostCommonBeatLength();
+                    // TODO: this should be done in a better place once we actually need to dynamically update it.
+                    beatmap.BeatmapInfo.Ruleset = rulesetInstance.RulesetInfo;
+                    beatmap.BeatmapInfo.StarDifficulty = rulesetInstance.CreateDifficultyCalculator(new DummyConversionBeatmap(beatmap)).Calculate().StarRating;
+                    beatmap.BeatmapInfo.Length = calculateLength(beatmap);
+                    beatmap.BeatmapInfo.BPM = 60000 / beatmap.GetMostCommonBeatLength();
+
+                    var difficulty = new RealmBeatmapDifficulty
+                    {
+                        DrainRate = beatmapInfo.BaseDifficulty.DrainRate,
+                        CircleSize = beatmapInfo.BaseDifficulty.CircleSize,
+                        OverallDifficulty = beatmapInfo.BaseDifficulty.OverallDifficulty,
+                        ApproachRate = beatmapInfo.BaseDifficulty.ApproachRate,
+                        SliderMultiplier = beatmapInfo.BaseDifficulty.SliderMultiplier,
+                        SliderTickRate = beatmapInfo.BaseDifficulty.SliderTickRate,
+                    };
+
+                    var metadata = new RealmBeatmapMetadata
+                    {
+                        Title = beatmap.Metadata.Title,
+                        TitleUnicode = beatmap.Metadata.TitleUnicode,
+                        Artist = beatmap.Metadata.Artist,
+                        ArtistUnicode = beatmap.Metadata.ArtistUnicode,
+                        Author = beatmap.Metadata.AuthorString,
+                        Source = beatmap.Metadata.Source,
+                        Tags = beatmap.Metadata.Tags,
+                        PreviewTime = beatmap.Metadata.PreviewTime,
+                        AudioFile = beatmap.Metadata.AudioFile,
+                        BackgroundFile = beatmap.Metadata.BackgroundFile,
+                    };
+
+                    var realmBeatmap = new RealmBeatmap(ruleset, difficulty, metadata)
+                    {
+                        DifficultyName = beatmapInfo.Version,
+                        OnlineID = beatmapInfo.OnlineBeatmapID,
+                        Length = beatmapInfo.Length,
+                        BPM = beatmapInfo.BPM,
+                        Hash = beatmapInfo.Hash,
+                        StarRating = beatmapInfo.StarDifficulty,
+                        MD5Hash = beatmapInfo.MD5Hash,
+                        Hidden = beatmapInfo.Hidden,
+                        AudioLeadIn = beatmapInfo.AudioLeadIn,
+                        StackLeniency = beatmapInfo.StackLeniency,
+                        SpecialStyle = beatmapInfo.SpecialStyle,
+                        LetterboxInBreaks = beatmapInfo.LetterboxInBreaks,
+                        WidescreenStoryboard = beatmapInfo.WidescreenStoryboard,
+                        EpilepsyWarning = beatmapInfo.EpilepsyWarning,
+                        SamplesMatchPlaybackRate = beatmapInfo.SamplesMatchPlaybackRate,
+                        DistanceSpacing = beatmapInfo.DistanceSpacing,
+                        BeatDivisor = beatmapInfo.BeatDivisor,
+                        GridSize = beatmapInfo.GridSize,
+                        TimelineZoom = beatmapInfo.TimelineZoom,
+                    };
 
                     // TODO: IBeatmap.BeatmapInfo needs to be updated to the new interface.
                     // beatmaps.Add(beatmap.BeatmapInfo);
 
-                    beatmaps.Add(new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), new RealmBeatmapMetadata()));
+                    beatmaps.Add(realmBeatmap);
                 }
             }
 
@@ -239,6 +293,40 @@ namespace osu.Game.Stores
         public void Dispose()
         {
             onlineLookupQueue?.Dispose();
+        }
+
+        private double calculateLength(IBeatmap b)
+        {
+            if (!b.HitObjects.Any())
+                return 0;
+
+            var lastObject = b.HitObjects.Last();
+
+            //TODO: this isn't always correct (consider mania where a non-last object may last for longer than the last in the list).
+            double endTime = lastObject.GetEndTime();
+            double startTime = b.HitObjects.First().StartTime;
+
+            return endTime - startTime;
+        }
+
+        /// <summary>
+        /// A dummy WorkingBeatmap for the purpose of retrieving a beatmap for star difficulty calculation.
+        /// </summary>
+        private class DummyConversionBeatmap : WorkingBeatmap
+        {
+            private readonly IBeatmap beatmap;
+
+            public DummyConversionBeatmap(IBeatmap beatmap)
+                : base(beatmap.BeatmapInfo, null)
+            {
+                this.beatmap = beatmap;
+            }
+
+            protected override IBeatmap GetBeatmap() => beatmap;
+            protected override Texture? GetBackground() => null;
+            protected override Track? GetBeatmapTrack() => null;
+            protected override ISkin? GetSkin() => null;
+            public override Stream? GetStream(string storagePath) => null;
         }
     }
 }
