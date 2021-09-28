@@ -8,17 +8,12 @@ namespace osu.Game.Models.Interfaces
     /// <summary>
     /// A single beatmap difficulty.
     /// </summary>
-    public interface IBeatmapInfo
+    public interface IBeatmapInfo : IHasOnlineID
     {
         /// <summary>
         /// The user-specified name given to this beatmap.
         /// </summary>
         string DifficultyName { get; }
-
-        /// <summary>
-        /// The server-side `beatmap_id` representing this beatmap, if one exists.
-        /// </summary>
-        int? OnlineID { get; }
 
         /// <summary>
         /// The metadata representing this beatmap. May be shared between multiple beatmaps.

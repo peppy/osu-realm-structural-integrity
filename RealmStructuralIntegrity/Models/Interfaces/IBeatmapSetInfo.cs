@@ -10,13 +10,8 @@ namespace osu.Game.Models.Interfaces
     /// <summary>
     /// A representation of a collection of beatmap difficulties, generally packaged as an ".osz" archive.
     /// </summary>
-    public interface IBeatmapSetInfo
+    public interface IBeatmapSetInfo : IHasOnlineID
     {
-        /// <summary>
-        /// The server-side `beatmap_set_id` representing this set, if one exists.
-        /// </summary>
-        int? OnlineID { get; }
-
         /// <summary>
         /// The date when this beatmap was imported.
         /// </summary>

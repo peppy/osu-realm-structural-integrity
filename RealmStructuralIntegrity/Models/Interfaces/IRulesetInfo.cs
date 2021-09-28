@@ -6,13 +6,8 @@ namespace osu.Game.Models.Interfaces
     /// <summary>
     /// A representation of a ruleset's metadata.
     /// </summary>
-    public interface IRulesetInfo
+    public interface IRulesetInfo : IHasOnlineID
     {
-        /// <summary>
-        /// The server-side `ruleset_id` representing this ruleset, if one exists.
-        /// </summary>
-        int? OnlineID { get; }
-
         /// <summary>
         /// The user-exposed name of this ruleset.
         /// </summary>
