@@ -482,8 +482,6 @@ namespace osu.Game.IsolatedTests
                     Author = "SomeAuthor"
                 };
 
-                var difficulty = new RealmBeatmapDifficulty();
-
                 var ruleset = new RealmRuleset(0, "test!", "test", true);
 
                 var toImport = new RealmBeatmapSet
@@ -491,11 +489,11 @@ namespace osu.Game.IsolatedTests
                     OnlineID = 1,
                     Beatmaps =
                     {
-                        new RealmBeatmap(ruleset, difficulty, metadata)
+                        new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata)
                         {
                             OnlineID = 2,
                         },
-                        new RealmBeatmap(ruleset, difficulty, metadata)
+                        new RealmBeatmap(ruleset, new RealmBeatmapDifficulty(), metadata)
                         {
                             OnlineID = 2,
                             Status = BeatmapSetOnlineStatus.Loved,
