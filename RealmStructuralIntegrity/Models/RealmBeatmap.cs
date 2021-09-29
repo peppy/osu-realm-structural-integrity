@@ -5,6 +5,7 @@ using System;
 using JetBrains.Annotations;
 using Newtonsoft.Json;
 using osu.Framework.Testing;
+using osu.Game.Beatmaps;
 using osu.Game.Database;
 using osu.Game.Models.Interfaces;
 using Realms;
@@ -31,6 +32,15 @@ namespace osu.Game.Models
         public RealmBeatmapMetadata Metadata { get; set; } = null!;
 
         public RealmBeatmapSet? BeatmapSet { get; set; }
+
+        public BeatmapSetOnlineStatus Status
+        {
+            get => (BeatmapSetOnlineStatus)StatusInt;
+            set => StatusInt = (int)value;
+        }
+
+        [MapTo(nameof(Status))]
+        public int StatusInt { get; set; }
 
         public int? OnlineID { get; set; }
 
