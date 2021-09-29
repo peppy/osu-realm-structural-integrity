@@ -843,7 +843,7 @@ namespace osu.Game.IsolatedTests
             Assert.AreEqual(expected, singleReferencedCount);
         }
 
-        private static void ensureLoaded(Realm realm, int timeout = 600)
+        private static void ensureLoaded(Realm realm, int timeout = 60000)
         {
             IQueryable<RealmBeatmapSet>? resultSets = null;
 
@@ -887,11 +887,16 @@ namespace osu.Game.IsolatedTests
         {
             const int sleep = 200;
 
-            while (timeout > 0 && !result())
+            while (timeout > 0)
             {
                 Thread.Sleep(sleep);
                 timeout -= sleep;
+
+                if (result())
+                    return;
             }
+
+            Assert.Fail(failureMessage);
         }
     }
 }
