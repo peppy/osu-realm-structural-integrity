@@ -14,7 +14,7 @@ using osu.Framework.Testing;
 using osu.Game.Database;
 using osu.Game.Models;
 
-namespace osu.Game.Tests
+namespace osu.Game.IsolatedTests
 {
     [TestFixture]
     public abstract class RealmTest
@@ -47,22 +47,25 @@ namespace osu.Game.Tests
             });
         }
 
-        protected async Task RunTestWithRealmAsync(Func<RealmContextFactory, Storage, Task> testAction, [CallerMemberName] string caller = "")
+        protected void RunTestWithRealmAsync(Func<RealmContextFactory, Storage, Task> testAction, [CallerMemberName] string caller = "")
         {
-            var testStorage = storage.GetStorageForDirectory(caller);
-
-            using (var realmFactory = new RealmContextFactory(testStorage, caller))
+            AsyncContext.Run(async () =>
             {
-                Logger.Log($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
+                var testStorage = storage.GetStorageForDirectory(caller);
 
-                await testAction(realmFactory, testStorage);
+                using (var realmFactory = new RealmContextFactory(testStorage, caller))
+                {
+                    Logger.Log($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
 
-                realmFactory.Dispose();
-                Logger.Log($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+                    await testAction(realmFactory, testStorage);
 
-                realmFactory.Compact();
-                Logger.Log($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
-            }
+                    realmFactory.Dispose();
+                    Logger.Log($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+
+                    realmFactory.Compact();
+                    Logger.Log($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+                }
+            });
         }
 
         protected static RealmBeatmapSet CreateBeatmapSet(RealmRuleset ruleset)

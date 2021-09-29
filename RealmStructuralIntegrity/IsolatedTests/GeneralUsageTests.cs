@@ -10,7 +10,7 @@ using osu.Game.Database;
 using osu.Game.Models;
 using Realms;
 
-namespace osu.Game.Tests
+namespace osu.Game.IsolatedTests
 {
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     [TestFixture]

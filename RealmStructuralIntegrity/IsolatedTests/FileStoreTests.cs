@@ -9,7 +9,7 @@ using osu.Framework.Logging;
 using osu.Game.Models;
 using osu.Game.Stores;
 
-namespace osu.Game.Tests
+namespace osu.Game.IsolatedTests
 {
     public class FileStoreTests : RealmTest
     {
