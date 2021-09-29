@@ -62,7 +62,7 @@ namespace osu.Game.Stores
         /// <summary>
         /// Fired when the user requests to view the resulting import.
         /// </summary>
-        public Action<IEnumerable<TModel>>? PresentImport;
+        public Action<IEnumerable<Live<TModel>>>? PresentImport;
 
         /// <summary>
         /// Set an endpoint for notifications to be posted to.
@@ -102,13 +102,13 @@ namespace osu.Game.Stores
             return Import(notification, tasks);
         }
 
-        protected async Task<IEnumerable<TModel>> Import(ProgressNotification notification, params ImportTask[] tasks)
+        protected async Task<IEnumerable<Live<TModel>>> Import(ProgressNotification notification, params ImportTask[] tasks)
         {
             if (tasks.Length == 0)
             {
                 notification.CompletionText = $"No {HumanisedModelName}s were found to import!";
                 notification.State = ProgressNotificationState.Completed;
-                return Enumerable.Empty<TModel>();
+                return Enumerable.Empty<Live<TModel>>();
             }
 
             notification.Progress = 0;
@@ -116,7 +116,7 @@ namespace osu.Game.Stores
 
             int current = 0;
 
-            var imported = new List<TModel>();
+            var imported = new List<Live<TModel>>();
 
             bool isLowPriorityImport = tasks.Length > low_priority_import_batch_size;
 
@@ -194,11 +194,11 @@ namespace osu.Game.Stores
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
         /// <returns>The imported model, if successful.</returns>
-        internal async Task<TModel?> Import(ImportTask task, bool lowPriority = false, CancellationToken cancellationToken = default)
+        internal async Task<Live<TModel>?> Import(ImportTask task, bool lowPriority = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            TModel? import;
+            Live<TModel>? import;
             using (ArchiveReader reader = task.GetReader())
                 import = await Import(reader, lowPriority, cancellationToken).ConfigureAwait(false);
 
@@ -213,7 +213,7 @@ namespace osu.Game.Stores
             }
             catch (Exception e)
             {
-                LogForModel(import, $@"Could not delete original file after import ({task})", e);
+                Logger.Error(e, $@"Could not delete original file after import ({task})");
             }
 
             return import;
@@ -225,7 +225,7 @@ namespace osu.Game.Stores
         /// <param name="archive">The archive to be imported.</param>
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
-        public Task<TModel?> Import(ArchiveReader archive, bool lowPriority = false, CancellationToken cancellationToken = default)
+        public Task<Live<TModel>?> Import(ArchiveReader archive, bool lowPriority = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -236,7 +236,7 @@ namespace osu.Game.Stores
                 model = CreateModel(archive);
 
                 if (model == null)
-                    return Task.FromResult<TModel?>(null);
+                    return Task.FromResult<Live<TModel>?>(null);
             }
             catch (TaskCanceledException)
             {
@@ -245,7 +245,7 @@ namespace osu.Game.Stores
             catch (Exception e)
             {
                 LogForModel(model, @$"Model creation of {archive.Name} failed.", e);
-                return Task.FromResult<TModel?>(null);
+                return Task.FromResult<Live<TModel>?>(null);
             }
 
             return Import(model, archive, lowPriority, cancellationToken);
@@ -311,7 +311,7 @@ namespace osu.Game.Stores
         /// <param name="archive">An optional archive to use for model population.</param>
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
-        public virtual async Task<TModel?> Import(TModel item, ArchiveReader? archive = null, bool lowPriority = false, CancellationToken cancellationToken = default) => await Task.Factory.StartNew(async () =>
+        public virtual async Task<Live<TModel>?> Import(TModel item, ArchiveReader? archive = null, bool lowPriority = false, CancellationToken cancellationToken = default) => await Task.Factory.StartNew(async () =>
         {
             using (var realm = ContextFactory.CreateContext())
             {
@@ -345,7 +345,7 @@ namespace osu.Game.Stores
                                 transaction.Commit();
                             }
 
-                            return existing;
+                            return existing.ToLive();
                         }
 
                         LogForModel(item, @"Found existing (optimised) but failed pre-check.");
@@ -381,7 +381,7 @@ namespace osu.Game.Stores
                                 existing.DeletePending = false;
 
                                 flushEvents(true);
-                                return existing;
+                                return existing.ToLive();
                             }
 
                             LogForModel(item, @"Found existing but failed re-use check.");
@@ -412,7 +412,7 @@ namespace osu.Game.Stores
                 }
 
                 flushEvents(true);
-                return item;
+                return item.ToLive();
             }
         }, cancellationToken, TaskCreationOptions.HideScheduler, lowPriority ? import_scheduler_low_priority : import_scheduler).Unwrap().ConfigureAwait(false);
 

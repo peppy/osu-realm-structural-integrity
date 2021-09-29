@@ -37,36 +37,29 @@ namespace osu.Game.IsolatedTests
                 using var importer = new BeatmapImporter(storage, realmFactory);
                 using var store = new RulesetStore(realmFactory, storage);
 
-                using (var reader = new ZipArchiveReader(TestResources.GetTestBeatmapStream()))
-                    await importer.Import(reader);
+                Live<RealmBeatmapSet>? imported;
 
-                // Assert.AreEqual(0, realmFactory.Context.All<RealmBeatmapSet>().Count());
-                // await realmFactory.Context.RefreshAsync();
+                using (var reader = new ZipArchiveReader(TestResources.GetTestBeatmapStream()))
+                    imported = await importer.Import(reader);
 
                 Assert.AreEqual(1, realmFactory.Context.All<RealmBeatmapSet>().Count());
 
-                using (var reader = new ZipArchiveReader(TestResources.GetTestBeatmapStream()))
-                    importer.Import(reader).Wait();
+                Assert.NotNull(imported);
+                Debug.Assert(imported != null);
 
-                await realmFactory.Context.RefreshAsync();
+                imported.PerformWrite(s => s.DeletePending = true);
 
-                Assert.AreEqual(2, realmFactory.Context.All<RealmBeatmapSet>().Count());
                 Assert.AreEqual(1, realmFactory.Context.All<RealmBeatmapSet>().Count(s => s.DeletePending));
             });
 
             Logger.Log("Running with no work to purge pending deletions");
 
-            RunTestWithRealm((realmFactory, _) =>
-            {
-                Assert.AreEqual(1, realmFactory.Context.All<RealmBeatmapSet>().Count());
-                Assert.AreEqual(0, realmFactory.Context.All<RealmBeatmapSet>().Count(s => s.DeletePending));
-            });
+            RunTestWithRealm((realmFactory, _) => { Assert.AreEqual(0, realmFactory.Context.All<RealmBeatmapSet>().Count()); });
         }
 
         [Test]
         public void TestImportWhenClosed()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -79,7 +72,6 @@ namespace osu.Game.IsolatedTests
         [Test]
         public void TestImportThenDelete()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -94,7 +86,6 @@ namespace osu.Game.IsolatedTests
         [Test]
         public void TestImportThenDeleteFromStream()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -102,7 +93,7 @@ namespace osu.Game.IsolatedTests
 
                 var tempPath = TestResources.GetTestBeatmapForImport();
 
-                RealmBeatmapSet? importedSet;
+                Live<RealmBeatmapSet>? importedSet;
 
                 using (var stream = File.OpenRead(tempPath))
                 {
@@ -111,11 +102,12 @@ namespace osu.Game.IsolatedTests
                 }
 
                 Assert.NotNull(importedSet);
+                Debug.Assert(importedSet != null);
 
                 Assert.IsTrue(File.Exists(tempPath), "Stream source file somehow went missing");
                 File.Delete(tempPath);
 
-                var imported = realmFactory.Context.All<RealmBeatmapSet>().First(beatmapSet => beatmapSet.ID == importedSet!.ID);
+                var imported = realmFactory.Context.All<RealmBeatmapSet>().First(beatmapSet => beatmapSet.ID == importedSet.ID);
 
                 deleteBeatmapSet(imported, realmFactory.Context);
             });
@@ -124,7 +116,6 @@ namespace osu.Game.IsolatedTests
         [Test]
         public void TestImportThenImport()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -177,10 +168,12 @@ namespace osu.Game.IsolatedTests
 
                     ensureLoaded(realmFactory.Context);
 
-                    // but contents doesn't, so existing should still be used.
                     Assert.NotNull(importedSecondTime);
-                    Assert.IsTrue(imported.ID == importedSecondTime!.ID);
-                    Assert.IsTrue(imported.Beatmaps.First().ID == importedSecondTime.Beatmaps.First().ID);
+                    Debug.Assert(importedSecondTime != null);
+
+                    // but contents doesn't, so existing should still be used.
+                    Assert.IsTrue(imported.ID == importedSecondTime.ID);
+                    Assert.IsTrue(imported.Beatmaps.First().ID == importedSecondTime.PerformRead(s => s.Beatmaps.First().ID));
                 }
                 finally
                 {
@@ -228,8 +221,10 @@ namespace osu.Game.IsolatedTests
 
                     // check the newly "imported" beatmap is not the original.
                     Assert.NotNull(importedSecondTime);
-                    Assert.IsTrue(imported.ID == importedSecondTime!.ID);
-                    Assert.IsTrue(imported.Beatmaps.First().ID != importedSecondTime.Beatmaps.First().ID);
+                    Debug.Assert(importedSecondTime != null);
+
+                    Assert.IsTrue(imported.ID != importedSecondTime.ID);
+                    Assert.IsTrue(imported.Beatmaps.First().ID != importedSecondTime.PerformRead(s => s.Beatmaps.First().ID));
                 }
                 finally
                 {
@@ -273,10 +268,12 @@ namespace osu.Game.IsolatedTests
 
                     ensureLoaded(realmFactory.Context);
 
-                    // check the newly "imported" beatmap is not the original.
                     Assert.NotNull(importedSecondTime);
-                    Assert.IsTrue(imported.ID == importedSecondTime!.ID);
-                    Assert.IsTrue(imported.Beatmaps.First().ID != importedSecondTime.Beatmaps.First().ID);
+                    Debug.Assert(importedSecondTime != null);
+
+                    // check the newly "imported" beatmap is not the original.
+                    Assert.IsTrue(imported.ID != importedSecondTime.ID);
+                    Assert.IsTrue(imported.Beatmaps.First().ID != importedSecondTime.PerformRead(s => s.Beatmaps.First().ID));
                 }
                 finally
                 {
@@ -319,10 +316,12 @@ namespace osu.Game.IsolatedTests
 
                     ensureLoaded(realmFactory.Context);
 
-                    // check the newly "imported" beatmap is not the original.
                     Assert.NotNull(importedSecondTime);
-                    Assert.IsTrue(imported.ID == importedSecondTime!.ID);
-                    Assert.IsTrue(imported.Beatmaps.First().ID != importedSecondTime.Beatmaps.First().ID);
+                    Debug.Assert(importedSecondTime != null);
+
+                    // check the newly "imported" beatmap is not the original.
+                    Assert.IsTrue(imported.ID != importedSecondTime.ID);
+                    Assert.IsTrue(imported.Beatmaps.First().ID != importedSecondTime.PerformRead(s => s.Beatmaps.First().ID));
                 }
                 finally
                 {
@@ -335,7 +334,6 @@ namespace osu.Game.IsolatedTests
         [Ignore("intentionally broken by import optimisations")]
         public void TestImportCorruptThenImport()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -369,10 +367,8 @@ namespace osu.Game.IsolatedTests
         [Test]
         public void TestRollbackOnFailure()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
-                int itemAddRemoveFireCount = 0;
                 int loggedExceptionCount = 0;
 
                 Logger.NewEntry += l =>
@@ -386,11 +382,7 @@ namespace osu.Game.IsolatedTests
 
                 var imported = await LoadOszIntoStore(importer, realmFactory.Context);
 
-                Assert.AreEqual(0, itemAddRemoveFireCount -= 1);
-
                 realmFactory.Context.Write(() => imported.Hash += "-changed");
-
-                Assert.AreEqual(0, itemAddRemoveFireCount -= 1);
 
                 checkBeatmapSetCount(realmFactory.Context, 1);
                 checkBeatmapCount(realmFactory.Context, 12);
@@ -419,9 +411,6 @@ namespace osu.Game.IsolatedTests
                 {
                 }
 
-                // no events should be fired in the case of a rollback.
-                Assert.AreEqual(0, itemAddRemoveFireCount);
-
                 checkBeatmapSetCount(realmFactory.Context, 1);
                 checkBeatmapCount(realmFactory.Context, 12);
 
@@ -436,7 +425,6 @@ namespace osu.Game.IsolatedTests
         [Test]
         public void TestImportThenDeleteThenImport()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -457,7 +445,6 @@ namespace osu.Game.IsolatedTests
         [Test]
         public void TestImportThenDeleteThenImportWithOnlineIDsMissing()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -484,7 +471,6 @@ namespace osu.Game.IsolatedTests
         [Test]
         public void TestImportWithDuplicateBeatmapIDs()
         {
-            // unfortunately for the time being we need to reference osu.Framework.Desktop for a game host here.
             RunTestWithRealmAsync(async (realmFactory, storage) =>
             {
                 using var importer = new BeatmapImporter(storage, realmFactory);
@@ -498,7 +484,7 @@ namespace osu.Game.IsolatedTests
 
                 var difficulty = new RealmBeatmapDifficulty();
 
-                var ruleset = CreateRuleset();
+                var ruleset = new RealmRuleset(0, "test!", "test", true);
 
                 var toImport = new RealmBeatmapSet
                 {
@@ -520,8 +506,10 @@ namespace osu.Game.IsolatedTests
                 var imported = await importer.Import(toImport);
 
                 Assert.NotNull(imported);
-                Assert.AreEqual(null, imported!.Beatmaps[0].OnlineID);
-                Assert.AreEqual(null, imported.Beatmaps[1].OnlineID);
+                Debug.Assert(imported != null);
+
+                Assert.AreEqual(null, imported.PerformRead(s => s.Beatmaps[0].OnlineID));
+                Assert.AreEqual(null, imported.PerformRead(s => s.Beatmaps[1].OnlineID));
             });
         }
 
@@ -606,9 +594,12 @@ namespace osu.Game.IsolatedTests
 
                     var imported = await importer.Import(new ImportTask(temp));
 
+                    Assert.NotNull(imported);
+                    Debug.Assert(imported != null);
+
                     ensureLoaded(realmFactory.Context);
 
-                    Assert.IsFalse(imported?.Files.Any(f => f.Filename.Contains("subfolder")), "Files contain common subfolder");
+                    Assert.IsFalse(imported.PerformRead(s => s.Files.Any(f => f.Filename.Contains("subfolder"))), "Files contain common subfolder");
                 }
                 finally
                 {
@@ -653,10 +644,13 @@ namespace osu.Game.IsolatedTests
 
                     var imported = await importer.Import(new ImportTask(temp));
 
+                    Assert.NotNull(imported);
+                    Debug.Assert(imported != null);
+
                     ensureLoaded(realmFactory.Context);
 
-                    Assert.IsFalse(imported?.Files.Any(f => f.Filename.Contains("__MACOSX")), "Files contain resource fork folder, which should be ignored");
-                    Assert.IsFalse(imported?.Files.Any(f => f.Filename.Contains("actual_data")), "Files contain common subfolder");
+                    Assert.IsFalse(imported.PerformRead(s => s.Files.Any(f => f.Filename.Contains("__MACOSX"))), "Files contain resource fork folder, which should be ignored");
+                    Assert.IsFalse(imported.PerformRead(s => s.Files.Any(f => f.Filename.Contains("actual_data"))), "Files contain common subfolder");
                 }
                 finally
                 {
@@ -799,11 +793,10 @@ namespace osu.Game.IsolatedTests
 
         private void deleteBeatmapSet(RealmBeatmapSet imported, Realm realm)
         {
-            realm.Write(r => r.Remove(imported));
+            realm.Write(() => imported.DeletePending = true);
 
             checkBeatmapSetCount(realm, 0);
             checkBeatmapSetCount(realm, 1, true);
-            checkSingleReferencedFileCount(realm, 0);
 
             Assert.IsTrue(realm.All<RealmBeatmapSet>().First(_ => true).DeletePending);
         }
@@ -824,8 +817,8 @@ namespace osu.Game.IsolatedTests
         private static void checkBeatmapSetCount(Realm realm, int expected, bool includeDeletePending = false)
         {
             Assert.AreEqual(expected, includeDeletePending
-                ? realm.All<RealmBeatmapSet>().Where(_ => true).ToList().Count
-                : realm.All<RealmBeatmapSet>().Count());
+                ? realm.All<RealmBeatmapSet>().Count()
+                : realm.All<RealmBeatmapSet>().Count(s => !s.DeletePending));
         }
 
         private static string hashFile(string filename)
