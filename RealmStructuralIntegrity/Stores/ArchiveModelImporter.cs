@@ -263,7 +263,13 @@ namespace osu.Game.Stores
 
         internal static void LogForModel(TModel? model, string message, Exception? e = null)
         {
-            string prefix = $"[{(model?.Hash ?? "?????").Substring(0, 5)}]";
+            string trimmedHash;
+            if (model == null || !model.IsValid || string.IsNullOrEmpty(model.Hash))
+                trimmedHash = "?????";
+            else
+                trimmedHash = model.Hash.Substring(0, 5);
+
+            string prefix = $"[{trimmedHash}]";
 
             if (e != null)
                 Logger.Error(e, $"{prefix} {message}", LoggingTarget.Database);
