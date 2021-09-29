@@ -11,7 +11,7 @@ using osu.Game.Stores;
 
 namespace osu.Game.Tests
 {
-    public class FileStoreTests : TestBase
+    public class FileStoreTests : RealmTest
     {
         [Test]
         public void TestImportFile()

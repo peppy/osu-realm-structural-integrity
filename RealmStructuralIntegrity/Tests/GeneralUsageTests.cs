@@ -14,7 +14,7 @@ namespace osu.Game.Tests
 {
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     [TestFixture]
-    public class GeneralUsageTests : TestBase
+    public class GeneralUsageTests : RealmTest
     {
         private const int beatmap_set_import_count = 1000;
 

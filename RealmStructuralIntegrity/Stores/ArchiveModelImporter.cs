@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Humanizer;
 using NuGet.Packaging;
 using osu.Framework.Extensions;
 using osu.Framework.Extensions.IEnumerableExtensions;
@@ -16,6 +17,7 @@ using osu.Framework.Threading;
 using osu.Game.Database;
 using osu.Game.IO.Archives;
 using osu.Game.Models;
+using osu.Game.Overlays.Notifications;
 using Realms;
 
 namespace osu.Game.Stores
@@ -62,11 +64,159 @@ namespace osu.Game.Stores
         /// </summary>
         public Action<IEnumerable<TModel>>? PresentImport;
 
+        /// <summary>
+        /// Set an endpoint for notifications to be posted to.
+        /// </summary>
+        public Action<Notification>? PostNotification { protected get; set; }
+
         protected ArchiveModelImporter(Storage storage, RealmContextFactory contextFactory)
         {
             ContextFactory = contextFactory;
 
             Files = new FileStore(contextFactory, storage);
+        }
+
+        /// <summary>
+        /// Import one or more <typeparamref name="TModel"/> items from filesystem <paramref name="paths"/>.
+        /// </summary>
+        /// <remarks>
+        /// This will be treated as a low priority import if more than one path is specified; use <see cref="Import(ImportTask[])"/> to always import at standard priority.
+        /// This will post notifications tracking progress.
+        /// </remarks>
+        /// <param name="paths">One or more archive locations on disk.</param>
+        public Task Import(params string[] paths)
+        {
+            var notification = new ProgressNotification { State = ProgressNotificationState.Active };
+
+            PostNotification?.Invoke(notification);
+
+            return Import(notification, paths.Select(p => new ImportTask(p)).ToArray());
+        }
+
+        public Task Import(params ImportTask[] tasks)
+        {
+            var notification = new ProgressNotification { State = ProgressNotificationState.Active };
+
+            PostNotification?.Invoke(notification);
+
+            return Import(notification, tasks);
+        }
+
+        protected async Task<IEnumerable<TModel>> Import(ProgressNotification notification, params ImportTask[] tasks)
+        {
+            if (tasks.Length == 0)
+            {
+                notification.CompletionText = $"No {HumanisedModelName}s were found to import!";
+                notification.State = ProgressNotificationState.Completed;
+                return Enumerable.Empty<TModel>();
+            }
+
+            notification.Progress = 0;
+            notification.Text = $"{HumanisedModelName.Humanize(LetterCasing.Title)} import is initialising...";
+
+            int current = 0;
+
+            var imported = new List<TModel>();
+
+            bool isLowPriorityImport = tasks.Length > low_priority_import_batch_size;
+
+            try
+            {
+                await Task.WhenAll(tasks.Select(async task =>
+                {
+                    notification.CancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        var model = await Import(task, isLowPriorityImport, notification.CancellationToken).ConfigureAwait(false);
+
+                        lock (imported)
+                        {
+                            if (model != null)
+                                imported.Add(model);
+                            current++;
+
+                            notification.Text = $"Imported {current} of {tasks.Length} {HumanisedModelName}s";
+                            notification.Progress = (float)current / tasks.Length;
+                        }
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Error(e, $@"Could not import ({task})", LoggingTarget.Database);
+                    }
+                })).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                if (imported.Count == 0)
+                {
+                    notification.State = ProgressNotificationState.Cancelled;
+                    return imported;
+                }
+            }
+
+            if (imported.Count == 0)
+            {
+                notification.Text = $"{HumanisedModelName.Humanize(LetterCasing.Title)} import failed!";
+                notification.State = ProgressNotificationState.Cancelled;
+            }
+            else
+            {
+                notification.CompletionText = imported.Count == 1
+                    ? $"Imported {imported.First()}!"
+                    : $"Imported {imported.Count} {HumanisedModelName}s!";
+
+                if (imported.Count > 0 && PresentImport != null)
+                {
+                    notification.CompletionText += " Click to view.";
+                    notification.CompletionClickAction = () =>
+                    {
+                        PresentImport?.Invoke(imported);
+                        return true;
+                    };
+                }
+
+                notification.State = ProgressNotificationState.Completed;
+            }
+
+            return imported;
+        }
+
+        /// <summary>
+        /// Import one <typeparamref name="TModel"/> from the filesystem and delete the file on success.
+        /// Note that this bypasses the UI flow and should only be used for special cases or testing.
+        /// </summary>
+        /// <param name="task">The <see cref="ImportTask"/> containing data about the <typeparamref name="TModel"/> to import.</param>
+        /// <param name="lowPriority">Whether this is a low priority import.</param>
+        /// <param name="cancellationToken">An optional cancellation token.</param>
+        /// <returns>The imported model, if successful.</returns>
+        internal async Task<TModel?> Import(ImportTask task, bool lowPriority = false, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            TModel? import;
+            using (ArchiveReader reader = task.GetReader())
+                import = await Import(reader, lowPriority, cancellationToken).ConfigureAwait(false);
+
+            // We may or may not want to delete the file depending on where it is stored.
+            //  e.g. reconstructing/repairing database with items from default storage.
+            // Also, not always a single file, i.e. for LegacyFilesystemReader
+            // TODO: Add a check to prevent files from storage to be deleted.
+            try
+            {
+                if (import != null && File.Exists(task.Path) && ShouldDeleteArchive(task.Path))
+                    File.Delete(task.Path);
+            }
+            catch (Exception e)
+            {
+                LogForModel(import, $@"Could not delete original file after import ({task})", e);
+            }
+
+            return import;
         }
 
         /// <summary>
@@ -369,6 +519,13 @@ namespace osu.Game.Stores
             // it is a duplicate. so to check if anything has changed, we can just compare all File IDs.
             getIDs(existing.Files).SequenceEqual(getIDs(import.Files)) &&
             getFilenames(existing.Files).SequenceEqual(getFilenames(import.Files));
+
+        /// <summary>
+        /// Whether this specified path should be removed after successful import.
+        /// </summary>
+        /// <param name="path">The path for consideration. May be a file or a directory.</param>
+        /// <returns>Whether to perform deletion.</returns>
+        protected virtual bool ShouldDeleteArchive(string path) => false;
 
         private IEnumerable<string> getIDs(IEnumerable<INamedFile> files)
         {

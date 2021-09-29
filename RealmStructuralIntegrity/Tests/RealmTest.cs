@@ -4,6 +4,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using osu.Framework.Extensions;
 using osu.Framework.Logging;
@@ -15,11 +16,11 @@ using osu.Game.Models;
 namespace osu.Game.Tests
 {
     [TestFixture]
-    public abstract class TestBase
+    public abstract class RealmTest
     {
         private static readonly TemporaryNativeStorage storage;
 
-        static TestBase()
+        static RealmTest()
         {
             storage = new TemporaryNativeStorage("realm-test");
             storage.DeleteDirectory(string.Empty);
@@ -33,6 +34,24 @@ namespace osu.Game.Tests
             {
                 Logger.Log($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
                 testAction(realmFactory, testStorage);
+
+                realmFactory.Dispose();
+                Logger.Log($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+
+                realmFactory.Compact();
+                Logger.Log($"Final database size after compact: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
+            }
+        }
+
+        protected async Task RunTestWithRealmAsync(Func<RealmContextFactory, Storage, Task> testAction, [CallerMemberName] string caller = "")
+        {
+            var testStorage = storage.GetStorageForDirectory(caller);
+
+            using (var realmFactory = new RealmContextFactory(testStorage, caller))
+            {
+                Logger.Log($"Running test using realm file {testStorage.GetFullPath(realmFactory.Filename)}");
+
+                await testAction(realmFactory, testStorage);
 
                 realmFactory.Dispose();
                 Logger.Log($"Final database size: {testStorage.GetStream(realmFactory.Filename)?.Length ?? 0}");
