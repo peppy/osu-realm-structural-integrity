@@ -225,7 +225,7 @@ namespace osu.Game.Stores
         /// <param name="archive">The archive to be imported.</param>
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
-        public Task<Live<TModel>?> Import(ArchiveReader archive, bool lowPriority = false, CancellationToken cancellationToken = default)
+        public async Task<Live<TModel>?> Import(ArchiveReader archive, bool lowPriority = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -236,7 +236,7 @@ namespace osu.Game.Stores
                 model = CreateModel(archive);
 
                 if (model == null)
-                    return Task.FromResult<Live<TModel>?>(null);
+                    return null;
             }
             catch (TaskCanceledException)
             {
@@ -245,10 +245,13 @@ namespace osu.Game.Stores
             catch (Exception e)
             {
                 LogForModel(model, @$"Model creation of {archive.Name} failed.", e);
-                return Task.FromResult<Live<TModel>?>(null);
+                return null;
             }
 
-            return Import(model, archive, lowPriority, cancellationToken);
+            var scheduledImport = Task.Factory.StartNew(async () => await Import(model, archive, lowPriority, cancellationToken),
+                cancellationToken, TaskCreationOptions.HideScheduler, lowPriority ? import_scheduler_low_priority : import_scheduler).Unwrap();
+
+            return await scheduledImport;
         }
 
         /// <summary>
@@ -317,7 +320,7 @@ namespace osu.Game.Stores
         /// <param name="archive">An optional archive to use for model population.</param>
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
-        public virtual async Task<Live<TModel>?> Import(TModel item, ArchiveReader? archive = null, bool lowPriority = false, CancellationToken cancellationToken = default) => await Task.Factory.StartNew(async () =>
+        public virtual async Task<Live<TModel>?> Import(TModel item, ArchiveReader? archive = null, bool lowPriority = false, CancellationToken cancellationToken = default)
         {
             using (var realm = ContextFactory.CreateContext())
             {
@@ -420,7 +423,7 @@ namespace osu.Game.Stores
                 flushEvents(true);
                 return item.ToLive();
             }
-        }, cancellationToken, TaskCreationOptions.HideScheduler, lowPriority ? import_scheduler_low_priority : import_scheduler).Unwrap().ConfigureAwait(false);
+        }
 
         private string computeHashFast(ArchiveReader reader)
         {

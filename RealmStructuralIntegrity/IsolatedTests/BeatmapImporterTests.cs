@@ -482,7 +482,7 @@ namespace osu.Game.IsolatedTests
                     Author = "SomeAuthor"
                 };
 
-                var ruleset = new RealmRuleset(0, "test!", "test", true);
+                var ruleset = realmFactory.Context.All<RealmRuleset>().First();
 
                 var toImport = new RealmBeatmapSet
                 {
