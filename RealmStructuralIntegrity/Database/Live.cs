@@ -21,7 +21,7 @@ namespace osu.Game.Database
         /// </summary>
         private readonly T data;
 
-        private readonly Guid id;
+        public readonly Guid ID;
 
         private readonly SynchronizationContext? fetchedContext;
         private readonly int fetchedThreadId;
@@ -37,7 +37,7 @@ namespace osu.Game.Database
             fetchedContext = SynchronizationContext.Current;
             fetchedThreadId = Thread.CurrentThread.ManagedThreadId;
 
-            id = data.ID;
+            ID = data.ID;
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace osu.Game.Database
             }
 
             using (var realm = Realm.GetInstance(data.Realm.Config))
-                perform(realm.Find<T>(id));
+                perform(realm.Find<T>(ID));
         }
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace osu.Game.Database
                 return perform(data);
 
             using (var realm = Realm.GetInstance(data.Realm.Config))
-                return perform(realm.Find<T>(id));
+                return perform(realm.Find<T>(ID));
         }
 
         /// <summary>
