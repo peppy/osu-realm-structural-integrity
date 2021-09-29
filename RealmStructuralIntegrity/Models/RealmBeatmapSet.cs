@@ -15,6 +15,7 @@ namespace osu.Game.Models
     [MapTo("BeatmapSet")]
     public class RealmBeatmapSet : RealmObject, IHasGuidPrimaryKey, IHasRealmFiles, ISoftDelete, IEquatable<RealmBeatmapSet>, IBeatmapSetInfo
     {
+        [PrimaryKey]
         public Guid ID { get; set; } = Guid.NewGuid();
 
         public int? OnlineID { get; set; }
