@@ -21,11 +21,11 @@ namespace osu.Game.Models
 
         public DateTimeOffset DateAdded { get; set; }
 
-        public IBeatmapMetadataInfo Metadata => Beatmaps.First().Metadata;
+        public IBeatmapMetadataInfo? Metadata => Beatmaps.FirstOrDefault()?.Metadata;
 
-        public IList<RealmBeatmap> Beatmaps { get; } = new List<RealmBeatmap>();
+        public IList<RealmBeatmap> Beatmaps { get; } = null!;
 
-        public IList<RealmNamedFileUsage> Files { get; } = new List<RealmNamedFileUsage>();
+        public IList<RealmNamedFileUsage> Files { get; } = null!;
 
         public bool DeletePending { get; set; }
 
@@ -49,7 +49,7 @@ namespace osu.Game.Models
         /// <param name="filename">The name of the file to get the storage path of.</param>
         public string? GetPathForFile(string filename) => Files.SingleOrDefault(f => string.Equals(f.Filename, filename, StringComparison.OrdinalIgnoreCase))?.File.StoragePath;
 
-        public override string ToString() => Metadata.ToString() ?? base.ToString();
+        public override string ToString() => Metadata?.ToString() ?? base.ToString();
 
         public bool Equals(RealmBeatmapSet? other)
         {

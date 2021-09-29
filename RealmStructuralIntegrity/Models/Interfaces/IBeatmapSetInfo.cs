@@ -20,7 +20,7 @@ namespace osu.Game.Models.Interfaces
         /// <summary>
         /// The best-effort metadata representing this set. In the case metadata differs between contained beatmaps, one is arbitrarily chosen.
         /// </summary>
-        IBeatmapMetadataInfo Metadata { get; }
+        IBeatmapMetadataInfo? Metadata { get; }
 
         /// <summary>
         /// All beatmaps contained in this set.
