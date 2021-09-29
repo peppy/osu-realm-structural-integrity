@@ -857,9 +857,10 @@ namespace osu.Game.IsolatedTests
 
             var set = queryBeatmapSets().First();
 
+            // ReSharper disable once PossibleUnintendedReferenceComparison
             IEnumerable<RealmBeatmap> queryBeatmaps() => realm.All<RealmBeatmap>().Where(s => s.BeatmapSet != null && s.BeatmapSet == set);
 
-            // if we don't re-check here, the set will be inserted but the beatmaps won't be present yet.
+            // if we don't re-check here, the set will be inserted but the beatmaps won't be present yet. TODO: not valid for realm, we are now transaction safe. remove?
             waitForOrAssert(() => queryBeatmaps().Count() == 12,
                 @"Beatmaps did not import to the database in allocated time", timeout);
             waitForOrAssert(() => queryBeatmapSets().Count() == 1,
@@ -875,7 +876,7 @@ namespace osu.Game.IsolatedTests
                 Assert.IsTrue(set.Beatmaps.Any(c => c.OnlineID == b.OnlineID));
             Assert.IsTrue(set.Beatmaps.Count > 0);
 
-            // TODO: add back working beatmap checks.
+            // TODO: add back working beatmap checks?
             // var beatmap = store.GetWorkingBeatmap(set.Beatmaps.First(b => b.OnlineID == 0))?.Beatmap;
             // Assert.IsTrue(beatmap?.HitObjects.Any() == true);
             // beatmap = store.GetWorkingBeatmap(set.Beatmaps.First(b => b.OnlineID == 1))?.Beatmap;
