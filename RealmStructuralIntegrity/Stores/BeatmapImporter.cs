@@ -49,7 +49,7 @@ namespace osu.Game.Stores
 
         private readonly dynamic? onlineLookupQueue = null; // todo: BeatmapOnlineLookupQueue is private
 
-        public BeatmapImporter(Storage storage, RealmContextFactory contextFactory, bool performOnlineLookups = false)
+        public BeatmapImporter(RealmContextFactory contextFactory, Storage storage, bool performOnlineLookups = false)
             : base(storage, contextFactory)
         {
             if (performOnlineLookups)
