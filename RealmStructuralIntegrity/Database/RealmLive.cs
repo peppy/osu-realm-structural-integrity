@@ -90,8 +90,15 @@ namespace osu.Game.Database
                 if (originalDataValid)
                     return data;
 
+                T retrieved;
+
                 using (var realm = Realm.GetInstance(data.Realm.Config))
-                    return realm.Find<T>(ID);
+                    retrieved = realm.Find<T>(ID);
+
+                if (!retrieved.IsValid)
+                    throw new InvalidOperationException("Attempted to access value without an open context");
+
+                return retrieved;
             }
         }
 
