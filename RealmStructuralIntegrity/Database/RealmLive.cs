@@ -13,24 +13,23 @@ namespace osu.Game.Database
     /// Provides a method of working with realm objects over longer application lifetimes.
     /// </summary>
     /// <typeparam name="T">The underlying object type.</typeparam>
-    public class Live<T>
-        where T : RealmObject, IHasGuidPrimaryKey
+    public class RealmLive<T> : ILive<T> where T : RealmObject, IHasGuidPrimaryKey
     {
-        /// <summary>
-        /// The original live data used to create this instance.
-        /// </summary>
-        private readonly T data;
-
-        public readonly Guid ID;
+        public Guid ID { get; }
 
         private readonly SynchronizationContext? fetchedContext;
         private readonly int fetchedThreadId;
 
         /// <summary>
+        /// The original live data used to create this instance.
+        /// </summary>
+        private readonly T data;
+
+        /// <summary>
         /// Construct a new instance of live realm data.
         /// </summary>
         /// <param name="data">The realm data.</param>
-        public Live(T data)
+        public RealmLive(T data)
         {
             this.data = data;
 
@@ -46,7 +45,7 @@ namespace osu.Game.Database
         /// <param name="perform">The action to perform.</param>
         public void PerformRead(Action<T> perform)
         {
-            if (isCorrectThread && data.IsValid && !data.Realm.IsClosed)
+            if (originalDataValid)
             {
                 perform(data);
                 return;
@@ -65,7 +64,7 @@ namespace osu.Game.Database
             if (typeof(TReturn).IsAssignableTo(typeof(RealmObjectBase)))
                 throw new InvalidOperationException($"Realm live objects should not exit the scope of {nameof(PerformRead)}.");
 
-            if (isCorrectThread && data.IsValid && !data.Realm.IsClosed)
+            if (originalDataValid)
                 return perform(data);
 
             using (var realm = Realm.GetInstance(data.Realm.Config))
@@ -83,6 +82,20 @@ namespace osu.Game.Database
                 perform(t);
                 transaction.Commit();
             });
+
+        public T Value
+        {
+            get
+            {
+                if (originalDataValid)
+                    return data;
+
+                using (var realm = Realm.GetInstance(data.Realm.Config))
+                    return realm.Find<T>(ID);
+            }
+        }
+
+        private bool originalDataValid => isCorrectThread && data.IsValid && !data.Realm.IsClosed;
 
         // this matches realm's internal thread validation (see https://github.com/realm/realm-dotnet/blob/903b4d0b304f887e37e2d905384fb572a6496e70/Realm/Realm/Native/SynchronizationContextScheduler.cs#L72)
         private bool isCorrectThread

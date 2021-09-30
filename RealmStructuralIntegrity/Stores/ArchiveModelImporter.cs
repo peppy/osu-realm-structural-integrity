@@ -27,7 +27,7 @@ namespace osu.Game.Stores
     /// Adds cross-functionality with <see cref="FileStore"/> to give access to the central file store for the provided model.
     /// </summary>
     /// <typeparam name="TModel">The model type.</typeparam>
-    public abstract class ArchiveModelImporter<TModel>
+    public abstract class ArchiveModelImporter<TModel> : IModelImporter<TModel>
         where TModel : RealmObject, IHasRealmFiles, IHasGuidPrimaryKey, ISoftDelete
     {
         private const int import_queue_request_concurrency = 1;
@@ -62,7 +62,7 @@ namespace osu.Game.Stores
         /// <summary>
         /// Fired when the user requests to view the resulting import.
         /// </summary>
-        public Action<IEnumerable<Live<TModel>>>? PresentImport;
+        public Action<IEnumerable<ILive<TModel>>>? PresentImport;
 
         /// <summary>
         /// Set an endpoint for notifications to be posted to.
@@ -102,13 +102,13 @@ namespace osu.Game.Stores
             return Import(notification, tasks);
         }
 
-        protected async Task<IEnumerable<Live<TModel>>> Import(ProgressNotification notification, params ImportTask[] tasks)
+        public async Task<IEnumerable<ILive<TModel>>> Import(ProgressNotification notification, params ImportTask[] tasks)
         {
             if (tasks.Length == 0)
             {
                 notification.CompletionText = $"No {HumanisedModelName}s were found to import!";
                 notification.State = ProgressNotificationState.Completed;
-                return Enumerable.Empty<Live<TModel>>();
+                return Enumerable.Empty<RealmLive<TModel>>();
             }
 
             notification.Progress = 0;
@@ -116,7 +116,7 @@ namespace osu.Game.Stores
 
             int current = 0;
 
-            var imported = new List<Live<TModel>>();
+            var imported = new List<ILive<TModel>>();
 
             bool isLowPriorityImport = tasks.Length > low_priority_import_batch_size;
 
@@ -194,11 +194,11 @@ namespace osu.Game.Stores
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
         /// <returns>The imported model, if successful.</returns>
-        internal async Task<Live<TModel>?> Import(ImportTask task, bool lowPriority = false, CancellationToken cancellationToken = default)
+        public async Task<ILive<TModel>?> Import(ImportTask task, bool lowPriority = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            Live<TModel>? import;
+            ILive<TModel>? import;
             using (ArchiveReader reader = task.GetReader())
                 import = await Import(reader, lowPriority, cancellationToken).ConfigureAwait(false);
 
@@ -225,7 +225,7 @@ namespace osu.Game.Stores
         /// <param name="archive">The archive to be imported.</param>
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
-        public async Task<Live<TModel>?> Import(ArchiveReader archive, bool lowPriority = false, CancellationToken cancellationToken = default)
+        public async Task<ILive<TModel>?> Import(ArchiveReader archive, bool lowPriority = false, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -320,7 +320,7 @@ namespace osu.Game.Stores
         /// <param name="archive">An optional archive to use for model population.</param>
         /// <param name="lowPriority">Whether this is a low priority import.</param>
         /// <param name="cancellationToken">An optional cancellation token.</param>
-        public virtual async Task<Live<TModel>?> Import(TModel item, ArchiveReader? archive = null, bool lowPriority = false, CancellationToken cancellationToken = default)
+        public virtual async Task<ILive<TModel>?> Import(TModel item, ArchiveReader? archive = null, bool lowPriority = false, CancellationToken cancellationToken = default)
         {
             using (var realm = ContextFactory.CreateContext())
             {
@@ -361,8 +361,6 @@ namespace osu.Game.Stores
                     }
                 }
 
-                delayEvents();
-
                 try
                 {
                     LogForModel(item, @"Beginning import...");
@@ -389,7 +387,6 @@ namespace osu.Game.Stores
                                 LogForModel(item, @$"Found existing {HumanisedModelName} for {item} (ID {existing.ID}) – skipping import.");
                                 existing.DeletePending = false;
 
-                                flushEvents(true);
                                 return existing.ToLive();
                             }
 
@@ -416,11 +413,9 @@ namespace osu.Game.Stores
                     if (!(e is TaskCanceledException))
                         LogForModel(item, @"Database import or population failed and has been rolled back.", e);
 
-                    flushEvents(false);
                     throw;
                 }
 
-                flushEvents(true);
                 return item.ToLive();
             }
         }
@@ -548,57 +543,7 @@ namespace osu.Game.Stores
                 yield return f.Filename;
         }
 
-        protected virtual string HumanisedModelName => $"{typeof(TModel).Name.Replace(@"Info", "").ToLower()}";
-
-        #region Event handling / delaying
-
-        private readonly List<Action> queuedEvents = new List<Action>();
-
-        /// <summary>
-        /// Allows delaying of outwards events until an operation is confirmed (at a database level).
-        /// </summary>
-        private bool delayingEvents;
-
-        /// <summary>
-        /// Begin delaying outwards events.
-        /// </summary>
-        private void delayEvents() => delayingEvents = true;
-
-        /// <summary>
-        /// Flush delayed events and disable delaying.
-        /// </summary>
-        /// <param name="perform">Whether the flushed events should be performed.</param>
-        private void flushEvents(bool perform)
-        {
-            Action[] events;
-
-            lock (queuedEvents)
-            {
-                events = queuedEvents.ToArray();
-                queuedEvents.Clear();
-            }
-
-            if (perform)
-            {
-                foreach (var a in events)
-                    a.Invoke();
-            }
-
-            delayingEvents = false;
-        }
-
-        private void handleEvent(Action a)
-        {
-            if (delayingEvents)
-            {
-                lock (queuedEvents)
-                    queuedEvents.Add(a);
-            }
-            else
-                a.Invoke();
-        }
-
-        #endregion
+        public virtual string HumanisedModelName => $"{typeof(TModel).Name.Replace(@"Info", "").ToLower()}";
 
         private string getValidFilename(string filename)
         {

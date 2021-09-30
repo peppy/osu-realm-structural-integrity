@@ -58,7 +58,7 @@ namespace osu.Game.Stores
             }
         }
 
-        protected override bool ShouldDeleteArchive(string path) => Path.GetExtension(path)?.ToLowerInvariant() == ".osz";
+        protected override bool ShouldDeleteArchive(string path) => Path.GetExtension(path).ToLowerInvariant() == ".osz";
 
         protected override async Task Populate(RealmBeatmapSet beatmapSet, ArchiveReader? archive, Realm realm, CancellationToken cancellationToken = default)
         {
@@ -165,7 +165,7 @@ namespace osu.Game.Stores
             return existing.OnlineID == import.OnlineID && existingIds.SequenceEqual(importIds);
         }
 
-        protected override string HumanisedModelName => "beatmap";
+        public override string HumanisedModelName => "beatmap";
 
         protected override RealmBeatmapSet? CreateModel(ArchiveReader reader)
         {

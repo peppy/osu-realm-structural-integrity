@@ -37,7 +37,7 @@ namespace osu.Game.IsolatedTests
                 using (var importer = new BeatmapImporter(realmFactory, storage))
                 using (var store = new RulesetStore(realmFactory, storage))
                 {
-                    Live<RealmBeatmapSet>? imported;
+                    ILive<RealmBeatmapSet>? imported;
 
                     using (var reader = new ZipArchiveReader(TestResources.GetTestBeatmapStream()))
                         imported = await importer.Import(reader);
@@ -94,7 +94,7 @@ namespace osu.Game.IsolatedTests
 
                 var tempPath = TestResources.GetTestBeatmapForImport();
 
-                Live<RealmBeatmapSet>? importedSet;
+                ILive<RealmBeatmapSet>? importedSet;
 
                 using (var stream = File.OpenRead(tempPath))
                 {

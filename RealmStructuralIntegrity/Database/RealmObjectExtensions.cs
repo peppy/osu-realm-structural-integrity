@@ -7,10 +7,10 @@ namespace osu.Game.Database
 {
     public static class RealmObjectExtensions
     {
-        public static Live<T> ToLive<T>(this T realmObject)
+        public static RealmLive<T> ToLive<T>(this T realmObject)
             where T : RealmObject, IHasGuidPrimaryKey
         {
-            return new Live<T>(realmObject);
+            return new RealmLive<T>(realmObject);
         }
     }
 }
